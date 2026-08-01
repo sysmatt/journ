@@ -67,7 +67,9 @@ function journ_maybe_compact_journal_metadata(string $journalUuid): void
     }
 
     $newFilename = 'metadata.' . journ_uuidv4() . '.json';
-    journ_write_fragment(journ_journal_dir($journalUuid), $newFilename, json_encode($winner['data'], journ_json_flags()));
+    if (!journ_write_fragment(journ_journal_dir($journalUuid), $newFilename, json_encode($winner['data'], journ_json_flags()))) {
+        return; // never archive originals unless the consolidated fragment is safely on disk
+    }
     journ_archive_originals($journalUuid, array_column($found, 'path'));
 }
 
@@ -85,7 +87,9 @@ function journ_maybe_compact_contacts(string $journalUuid): void
 
     foreach ($winners as $winner) {
         $newFilename = 'contact.' . journ_uuidv4() . '.json';
-        journ_write_fragment(journ_journal_dir($journalUuid), $newFilename, json_encode($winner['data'], journ_json_flags()));
+        if (!journ_write_fragment(journ_journal_dir($journalUuid), $newFilename, json_encode($winner['data'], journ_json_flags()))) {
+            return; // never archive originals unless every consolidated fragment is safely on disk
+        }
     }
     journ_archive_originals($journalUuid, array_column($found, 'path'));
 }
@@ -107,7 +111,9 @@ function journ_maybe_compact_event_metadata(string $journalUuid, string $eventUu
     }
 
     $newFilename = 'metadata.' . journ_uuidv4() . '.json';
-    journ_write_fragment(journ_event_dir($journalUuid, $eventUuid), $newFilename, json_encode($winner['data'], journ_json_flags()));
+    if (!journ_write_fragment(journ_event_dir($journalUuid, $eventUuid), $newFilename, json_encode($winner['data'], journ_json_flags()))) {
+        return; // never archive originals unless the consolidated fragment is safely on disk
+    }
     journ_archive_originals($journalUuid, array_column($found, 'path'));
 }
 
@@ -136,8 +142,20 @@ function journ_maybe_compact_entries(string $journalUuid, string $eventUuid): vo
     }
     usort($entries, fn($a, $b) => strtotime((string) ($a['created_at'] ?? '')) <=> strtotime((string) ($b['created_at'] ?? '')));
 
-    // Filename = uuid of the first entry, same convention as any normal write.
-    $newFilename = 'entry.' . $entries[0]['uuid'] . '.json';
-    journ_write_fragment(journ_event_dir($journalUuid, $eventUuid), $newFilename, json_encode(['v' => 1, 'entries' => $entries], journ_json_flags()));
+    // Filename MUST be a fresh uuid, NOT an entry's own uuid — a
+    // never-edited entry's original creation fragment already lives at
+    // exactly `entry.{that entry's uuid}.json` (see stores.js postEntry
+    // vs. editEntry), so reusing it here would collide with one of the
+    // very files being archived below. journ_write_fragment() uses
+    // exclusive fopen('x') and silently returns false on collision — if
+    // that happened and we archived originals anyway (previously
+    // unchecked), every entry in this event would vanish from the live
+    // tree while surviving only in attic/. Same rule as editEntry's
+    // fragment filename, and the same reason.
+    $newFilename = 'entry.' . journ_uuidv4() . '.json';
+    $ok = journ_write_fragment(journ_event_dir($journalUuid, $eventUuid), $newFilename, json_encode(['v' => 1, 'entries' => $entries], journ_json_flags()));
+    if (!$ok) {
+        return; // never archive originals unless the consolidated fragment is safely on disk
+    }
     journ_archive_originals($journalUuid, array_column($found, 'path'));
 }
