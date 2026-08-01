@@ -5,7 +5,7 @@
   // a create."
   import { createJournal, saveJournalName, saveEventMeta } from '../stores.js';
 
-  let { mode, journalMeta = null, eventMeta = null, baseUrl, onClose } = $props();
+  let { mode, journalMeta = null, eventMeta = null, baseUrl, prefillBootstrapSecret = '', onClose } = $props();
 
   const titles = {
     'new-journal': 'New journal',
@@ -25,7 +25,7 @@
   let creatorName = $state('');
   let creatorShortName = $state('');
   let creatorEmail = $state('');
-  let bootstrapSecret = $state(new URLSearchParams(location.search).get('bootstrap') || '');
+  let bootstrapSecret = $state(prefillBootstrapSecret);
   let busy = $state(false);
   let error = $state('');
 

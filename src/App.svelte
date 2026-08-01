@@ -26,18 +26,29 @@
 
   let updateAvailable = $state(false);
   let updateSW = null;
+  // Pre-filled from a ?bootstrap=... create-journal link (see below) —
+  // passed down to the New Journal modal rather than having it read
+  // location.search itself, specifically so the URL gets scrubbed
+  // immediately on load rather than staying live in the address bar/
+  // history for as long as the modal happens to stay closed.
+  let prefillBootstrapSecret = $state('');
 
   onMount(async () => {
     document.documentElement.setAttribute('data-theme', 'dark');
     await initApp();
     document.documentElement.setAttribute('data-theme', get(theme));
 
+    const params = new URLSearchParams(location.search);
+
     // Invite-link onboarding: /?journal=...&contact=...&secret=... — see
     // docs/spec/identity-and-security.md § Onboarding.
-    const params = new URLSearchParams(location.search);
     const journalUuid = params.get('journal');
     const contactUuid = params.get('contact');
     const secret = params.get('secret');
+    // Create-journal link: /?bootstrap=... — see
+    // docs/spec/identity-and-security.md § Bootstrap.
+    const bootstrap = params.get('bootstrap');
+
     if (journalUuid && contactUuid && secret) {
       await saveIdentity(journalUuid, contactUuid, secret);
       await saveJournalBookmark(journalUuid, journalUuid, apiBaseUrl); // name corrected once the journal metadata syncs
@@ -45,6 +56,10 @@
       await selectJournal(journalUuid, apiBaseUrl);
       history.replaceState({}, '', '/'); // scrub the secret (and /invite path) out of the URL bar/history
     } else {
+      if (bootstrap) {
+        prefillBootstrapSecret = bootstrap;
+        history.replaceState({}, '', '/'); // scrub the bootstrap secret out of the URL bar/history immediately, not just on eventual use
+      }
       const known = await getKnownJournals();
       if (known.length > 0) {
         await selectJournal(known[0].uuid, known[0].baseUrl);
@@ -73,7 +88,7 @@
   </button>
 {/if}
 
-<TopBar baseUrl={apiBaseUrl} />
+<TopBar baseUrl={apiBaseUrl} {prefillBootstrapSecret} />
 
 <div class="app">
   <div class="masthead">

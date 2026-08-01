@@ -9,7 +9,7 @@
   import { computeCompletionPercent } from '../render.js';
   import MetaModal from './MetaModal.svelte';
 
-  let { baseUrl } = $props();
+  let { baseUrl, prefillBootstrapSecret = '' } = $props();
 
   let modal = $state(null); // 'new-journal' | 'edit-journal' | 'new-event' | 'edit-event' | null
   let now = $state(new Date());
@@ -142,7 +142,7 @@
 </div>
 
 {#if modal}
-  <MetaModal mode={modal} journalMeta={$journalMeta} eventMeta={$eventMeta} {baseUrl} onClose={() => (modal = null)} />
+  <MetaModal mode={modal} journalMeta={$journalMeta} eventMeta={$eventMeta} {baseUrl} {prefillBootstrapSecret} onClose={() => (modal = null)} />
 {/if}
 
 <style>
