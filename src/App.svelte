@@ -7,7 +7,7 @@
   import Composer from './lib/components/Composer.svelte';
   import EntriesTable from './lib/components/EntriesTable.svelte';
   import ContactsView from './lib/components/ContactsView.svelte';
-  import { initApp, theme, currentJournalUuid, currentEventUuid, eventMeta, knownJournals, selectJournal } from './lib/stores.js';
+  import { initApp, theme, currentJournalUuid, currentEventUuid, eventMeta, knownJournals, selectJournal, rememberedBootstrapSecret, rememberBootstrapSecret } from './lib/stores.js';
   import { saveIdentity, saveJournalBookmark, getKnownJournals } from './lib/db.js';
 
   let view = $state('journal'); // 'journal' | 'contacts'
@@ -58,7 +58,10 @@
     } else {
       if (bootstrap) {
         prefillBootstrapSecret = bootstrap;
+        await rememberBootstrapSecret(bootstrap); // so future "+ New journal" doesn't need this link again
         history.replaceState({}, '', '/'); // scrub the bootstrap secret out of the URL bar/history immediately, not just on eventual use
+      } else {
+        prefillBootstrapSecret = get(rememberedBootstrapSecret);
       }
       const known = await getKnownJournals();
       if (known.length > 0) {

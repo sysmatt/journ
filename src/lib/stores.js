@@ -28,12 +28,26 @@ export const entries = writable([]);
 export const syncStatus = writable('offline');
 export const tagsConfig = writable([]); // from GET /tags, declaration order preserved
 
+// The create-journal (bootstrap) secret is install-wide, not per-contact
+// (see docs/spec/identity-and-security.md § Bootstrap) — once someone has
+// used it successfully on this device, remembering it locally saves them
+// from having to dig up the original create-journal link every time they
+// want to start another journal. It's stored the same way as theme/timeMode
+// (local-only preference, never synced) — see db.js § preferences.
+export const rememberedBootstrapSecret = writable('');
+
 let engine = null;
 
 export async function initApp() {
   theme.set(await db.getPreference('theme', 'dark'));
   timeMode.set(await db.getPreference('timeMode', 'utc'));
   knownJournals.set(await db.getKnownJournals());
+  rememberedBootstrapSecret.set(await db.getPreference('bootstrapSecret', ''));
+}
+
+export async function rememberBootstrapSecret(secret) {
+  rememberedBootstrapSecret.set(secret);
+  await db.setPreference('bootstrapSecret', secret);
 }
 
 export async function setTheme(value) {

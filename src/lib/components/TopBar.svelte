@@ -59,14 +59,30 @@
 
   function onJournalChange(e) {
     const uuid = e.target.value;
-    if (uuid === '__new__') { modal = 'new-journal'; return; }
+    if (uuid === '__new__') {
+      // The select's `value` prop is bound to $currentJournalUuid, which
+      // this branch does NOT change — so Svelte has nothing to react to
+      // and never reassigns the DOM value back. Left alone, the <select>
+      // stays showing "+ New journal…" forever (even across Cancel),
+      // and since the browser only fires `change` when its value
+      // actually differs from the DOM's current one, every later pick —
+      // "+ New journal…" again included — silently does nothing. Snap
+      // it back to the true current value ourselves, right away.
+      e.target.value = $currentJournalUuid ?? '';
+      modal = 'new-journal';
+      return;
+    }
     const j = $knownJournals.find((k) => k.uuid === uuid);
     if (j) selectJournal(j.uuid, j.baseUrl);
   }
 
   function onEventChange(e) {
     const uuid = e.target.value;
-    if (uuid === '__new__') { modal = 'new-event'; return; }
+    if (uuid === '__new__') {
+      e.target.value = $currentEventUuid ?? ''; // see onJournalChange
+      modal = 'new-event';
+      return;
+    }
     selectEvent(uuid);
   }
 </script>

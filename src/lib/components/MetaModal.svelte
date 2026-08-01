@@ -3,7 +3,7 @@
   // docs/spec/ui-ux.md § Top bar: "reuses the same modal/form as new,
   // pre-filled with current values, submitting as an update rather than
   // a create."
-  import { createJournal, saveJournalName, saveEventMeta } from '../stores.js';
+  import { createJournal, saveJournalName, saveEventMeta, rememberBootstrapSecret } from '../stores.js';
 
   let { mode, journalMeta = null, eventMeta = null, baseUrl, prefillBootstrapSecret = '', onClose } = $props();
 
@@ -71,6 +71,7 @@
           short_name: creatorShortName.trim() || null,
           email: creatorEmail.trim() || null,
         });
+        await rememberBootstrapSecret(bootstrapSecret); // worked — remember it so next time doesn't need the link/re-typing
       } else if (mode === 'edit-journal') {
         await saveJournalName(name.trim());
       } else {
