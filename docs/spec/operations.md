@@ -119,10 +119,31 @@ size/type limits below).
 
 ### 3. Invite emails
 
-SMTP-based sending, config via the server-wide INI (see reference below,
-matches the `simplewebauth` project's convention). Endpoints for
-send-single and send-bulk, building the invite URL and email body — see
-`identity-and-security.md`.
+**Pluggable delivery driver**, config-selected via `[smtp] driver` in the
+server-wide INI (see reference below, matches the `simplewebauth`
+project's convention for where this config lives):
+
+- **`sendmail`** *(default, added 2026-08-01)* — hands off to the local
+  MTA via PHP's `mail()`. Zero SMTP config needed on our side beyond
+  `from_email`/`from_name`; relies on `php.ini`'s `sendmail_path` already
+  pointing at a working sendmail-compatible binary (e.g. `msmtp`
+  installed as a drop-in, itself configured to relay through a real
+  provider). This is what journ's own reference deployment uses.
+- **`smtp`** — the original minimal raw-socket client, talks directly to
+  a relay using host/port/username/password.
+- **Anticipated, not built**: a future `api` driver calling out to a
+  dedicated transactional-email HTTP endpoint. The driver dispatch in
+  `api/lib/email.php::journ_send_email()` is deliberately structured so
+  adding this later is a new `match` arm, not a rewrite.
+
+Both existing drivers strip CR/LF from user-controlled values (recipient
+address, and the journal name that flows into the subject line) before
+they're embedded in SMTP commands or email headers — a header/command
+injection vector that existed in the original raw-socket-only
+implementation and got closed while adding the second driver.
+
+Endpoints for send-single and send-bulk, building the invite URL and
+email body — see `identity-and-security.md`.
 
 ### 4. Compaction
 
@@ -150,7 +171,7 @@ anyone noticing until two conflicting tags appear in the same entry.
 |---|---|---|
 | Journal-creation (bootstrap) secret | Gates minting a brand-new journal | Locked in |
 | Recovery secret | Gates break-glass emergency-contact recovery on an existing journal | Locked in |
-| SMTP settings (host/port/credentials/from-address) | Invite email delivery | Locked in, exact keys TBD |
+| `[smtp] driver` (`sendmail` \| `smtp`) + settings | Invite email delivery — see § Invite emails above | Locked in, see `journ-config.ini.example` |
 | Journal data storage path | Default `/var/local/journ/` | Locked in |
 | Max attachment upload size | Proposed **5GB** — flagged for double-checking (possible typo for 5MB; a notable outlier against the "not a lot of data" assumption elsewhere) | **Not finalized** |
 | Compaction fragment-count trigger | Proposed **10** — flagged as likely too aggressive; at that threshold compaction would fire almost continuously during a busy incident rather than functioning as occasional long-term-sprawl cleanup | **Not finalized** |

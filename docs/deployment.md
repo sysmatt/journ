@@ -90,7 +90,7 @@ Then edit it and fill in, at minimum:
 | `data_root` | — | Absolute path, e.g. `/var/local/journ`. See § Data directory below for permissions. |
 | `base_url` | — | The public site URL, e.g. `https://journ.example.org` — **no `/api` suffix**; used to build invite/create-journal links, not API calls. |
 | `max_upload_bytes`, `compaction_threshold` | — | Provisional defaults exist in code if omitted; see `docs/spec/operations.md` § Config reference for current values, which are explicitly flagged as not finalized. |
-| `[smtp]` section | — | Needed for invite emails to actually send; the app degrades gracefully (logs + returns `sent:false`) if omitted, so it's not strictly blocking for a first deploy. |
+| `[smtp]` section | — | Needed for invite emails to actually send; the app degrades gracefully (logs + returns `sent:false`) if omitted, so it's not strictly blocking for a first deploy. Default driver is `sendmail` (local MTA via PHP's `mail()`) — see § Email delivery below before assuming this "just works." |
 | `[tag:*]` sections | — | Optional; code ships with defaults (rush/critical/action/decision). **Declaration order in the file is the precedence rule** — see `docs/spec/ui-ux.md` § Tags. Whatever INI-parsing approach is used must preserve that order (PHP's `parse_ini_file` does, natively — this only matters if the deploy tooling ever re-generates/re-orders this file programmatically). |
 
 ### 4. Data directory
@@ -156,7 +156,33 @@ intended max, or the smallest one silently wins**:
    response* (`413 payload_too_large`); the other two fail earlier and
    more opaquely (a generic web-server or PHP-level rejection).
 
-### 8. Verify
+### 8. Email delivery
+
+`[smtp] driver` in `journ-config.ini` picks how invite emails go out
+(see `docs/spec/operations.md` § Invite emails for the full rationale).
+**Default is `sendmail`** — PHP's `mail()`, handed to the local MTA.
+
+- **If using `sendmail`** (the default): this needs `php.ini`'s
+  `sendmail_path` to already point at a working sendmail-compatible
+  binary — journ does nothing to configure this itself, it's a PHP/OS
+  concern, not an app concern. Verify it directly, independent of the
+  app:
+  ```bash
+  php -r 'var_dump(mail("you@example.com", "test", "test body"));'
+  ```
+  If that returns `false` or the mail never arrives, fix the MTA setup
+  (e.g. confirm `msmtp` is installed and `sendmail_path` in `php.ini`
+  points at it, e.g. `sendmail_path = /usr/bin/msmtp -t`) before assuming
+  anything's wrong with journ itself.
+- **If using `driver = "smtp"` instead**: fill in `host`/`port`/
+  `username`/`password`/`encryption` in `[smtp]` — no local MTA needed,
+  journ talks directly to the relay.
+
+Either way, if `from_email` is unset, the app skips sending entirely
+(logs it, returns `sent:false`) rather than erroring — invite emails are
+best-effort by design, never block the write they're attached to.
+
+### 9. Verify
 
 ```bash
 curl -s https://journ.example.org/api/tags

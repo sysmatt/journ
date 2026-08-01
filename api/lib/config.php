@@ -73,6 +73,15 @@ function journ_config(): array
         'compaction_threshold' => (int) ($general['compaction_threshold'] ?? JOURN_DEFAULT_COMPACTION_THRESHOLD),
         'base_url'             => $general['base_url'] ?? null,
         'smtp' => [
+            // 'sendmail' (default): hand off to the local MTA via PHP's
+            // mail() — zero config here, relies on php.ini's
+            // sendmail_path already being set up correctly (e.g. msmtp
+            // installed as a sendmail drop-in). 'smtp': the raw-socket
+            // client, talks directly to a relay using the fields below.
+            // A future 'api' driver (some dedicated transactional-email
+            // HTTP endpoint) is anticipated but not implemented — see
+            // docs/spec/operations.md § Email delivery.
+            'driver'     => $raw['smtp']['driver'] ?? 'sendmail',
             'host'       => $raw['smtp']['host'] ?? null,
             'port'       => (int) ($raw['smtp']['port'] ?? 587),
             'username'   => $raw['smtp']['username'] ?? null,
