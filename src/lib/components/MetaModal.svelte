@@ -7,18 +7,23 @@
 
   let { mode, journalMeta = null, eventMeta = null, baseUrl, prefillBootstrapSecret = '', onClose } = $props();
 
-  // <input type="datetime-local"> edits a LOCAL wall-clock value with no
-  // timezone attached — it is NOT the same string as a UTC ISO timestamp.
-  // Bug fixed 2026-08-01: feeding it a UTC value directly (just sliced)
-  // made it display the UTC hour labeled as if it were local, and on
-  // submit the browser then reinterpreted that value as local and
-  // converted it back to UTC again — silently shifting start_at by the
-  // viewer's UTC offset. This converts properly in both directions using
-  // the LOCAL Date getters (not the UTC ones).
-  function isoToLocalInputValue(iso) {
+  // Local wall-clock values, no timezone attached (that's the whole
+  // point — a UTC ISO string is NOT the same as a local display value,
+  // see the bug fixed 2026-08-01). Split into separate date/time inputs
+  // rather than one combined <input type="datetime-local"> — that
+  // combined widget's time-picker UI is notoriously inconsistent/clunky
+  // across browsers (a cramped scrollable spinner on several
+  // browser/OS combos); plain type="date" + type="time" behave far
+  // better individually.
+  function isoToLocalDate(iso) {
     const d = iso ? new Date(iso) : new Date();
     const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  function isoToLocalTime(iso) {
+    const d = iso ? new Date(iso) : new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
   const titles = {
@@ -34,7 +39,8 @@
   // is exactly the wanted behavior, not a missed $derived.
   let name = $state(mode === 'edit-journal' ? (journalMeta?.name ?? '') : '');
   let description = $state(mode === 'edit-event' ? (eventMeta?.description ?? '') : '');
-  let startAt = $state(isoToLocalInputValue(mode === 'edit-event' ? eventMeta?.start_at : null));
+  let startDate = $state(isoToLocalDate(mode === 'edit-event' ? eventMeta?.start_at : null));
+  let startTime = $state(isoToLocalTime(mode === 'edit-event' ? eventMeta?.start_at : null));
   let closed = $state(mode === 'edit-event' ? !!eventMeta?.closed : false);
   let creatorName = $state('');
   let creatorShortName = $state('');
@@ -57,7 +63,7 @@
       } else if (mode === 'edit-journal') {
         await saveJournalName(name.trim());
       } else {
-        await saveEventMeta({ description, startAt: new Date(startAt).toISOString(), closed });
+        await saveEventMeta({ description, startAt: new Date(`${startDate}T${startTime}`).toISOString(), closed });
       }
       onClose();
     } catch (e) {
@@ -111,8 +117,16 @@
         <textarea id="mm-description" bind:value={description} placeholder="What is this event about?"></textarea>
       </div>
       <div class="field">
-        <label for="mm-start">Start time</label>
-        <input id="mm-start" type="datetime-local" bind:value={startAt} />
+        <label for="mm-start-date">Start time</label>
+        <div class="start-row">
+          <input id="mm-start-date" type="date" bind:value={startDate} />
+          <input id="mm-start-time" type="time" bind:value={startTime} aria-label="Start time (time of day)" />
+          <button
+            type="button"
+            class="ghost-btn"
+            onclick={() => { startDate = isoToLocalDate(); startTime = isoToLocalTime(); }}
+          >Now</button>
+        </div>
       </div>
       {#if mode === 'edit-event'}
         <div class="field">
@@ -136,3 +150,10 @@
     </div>
   </div>
 </div>
+
+<style>
+  .start-row { display: flex; gap: 8px; align-items: center; }
+  .start-row input[type='date'] { flex: 1.3; }
+  .start-row input[type='time'] { flex: 1; }
+  .start-row .ghost-btn { padding: 8px 12px; }
+</style>
