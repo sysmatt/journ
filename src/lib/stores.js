@@ -188,12 +188,22 @@ export async function trashEntry(entryUuid, trashed = true) {
   await recomputeEventLevel(journalUuid, eventUuid);
 }
 
-export async function saveEventMeta({ description, startAt, closed }) {
+/**
+ * `isNew` is REQUIRED, not inferred — see docs/brain-dump.md-worthy bug
+ * fixed 2026-08-01: this used to guess create-vs-edit from
+ * currentJournalUuid/eventMeta store state, which is still populated
+ * with the PREVIOUSLY selected event when opening "+ New event" (nothing
+ * clears it first) — so creating a new event while one was already
+ * selected silently overwrote the old one instead of creating a second.
+ * The caller (MetaModal) always unambiguously knows which case it is via
+ * its own `mode` prop — trust that, don't re-derive it from state that
+ * can be stale.
+ */
+export async function saveEventMeta({ description, startAt, closed, isNew }) {
   const journalUuid = get(currentJournalUuid);
-  const eventUuid = get(currentEventUuid) || crypto.randomUUID();
+  const eventUuid = isNew ? crypto.randomUUID() : get(currentEventUuid);
   const identity = get(_identityCache);
-  const existing = get(eventMeta);
-  const isNew = !existing;
+  const existing = isNew ? null : get(eventMeta);
 
   const fragment = {
     v: 1,

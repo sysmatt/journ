@@ -74,7 +74,7 @@
       } else if (mode === 'edit-journal') {
         await saveJournalName(name.trim());
       } else {
-        await saveEventMeta({ description, startAt: new Date(`${startDate}T${startHour}:${startMinute}`).toISOString(), closed });
+        await saveEventMeta({ description, startAt: new Date(`${startDate}T${startHour}:${startMinute}`).toISOString(), closed, isNew: mode === 'new-event' });
       }
       onClose();
     } catch (e) {
