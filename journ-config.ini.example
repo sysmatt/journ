@@ -5,6 +5,15 @@
 ;
 ; Example: if this repo is cloned to /var/www/html/journ/, place the
 ; live config at /var/www/html/journ-config.ini
+;
+; Convention: keys with a code-level default are shown here COMMENTED
+; OUT, with that current default noted inline — uncomment and change
+; only the ones you actually want to override. Leaving them commented
+; means a future default change in code (see api/lib/config.php) takes
+; effect on this install automatically instead of being silently
+; masked by a stale copy of today's value. Keys with no code default
+; (secrets, base_url, from_email) are active below since there's
+; nothing sensible to fall back to — the app needs a real value.
 
 [general]
 
@@ -20,18 +29,18 @@ recovery_secret = "change-me-generate-a-different-long-random-value"
 
 ; Where journal data (JSON fragments + attachments) lives. Deliberately
 ; outside the web-servable docroot. See docs/spec/operations.md.
-data_root = "/var/local/journ"
+; default: data_root = "/var/local/journ"
 
 ; Provisional, not finalized — see docs/spec/operations.md § Config
 ; reference for the open question on what these should actually be.
-max_upload_bytes = 26214400   ; 25MB
-compaction_threshold = 10
+; default: max_upload_bytes = 26214400   ; 25MB
+; default: compaction_threshold = 10
 
 ; Pretty-print fragment JSON on disk (indented, human-readable) instead of
 ; the compact single-line form. Convenient while poking around data_root
 ; during development/debugging; off by default since it roughly doubles
 ; fragment file size for no functional benefit in production.
-pretty_json = false
+; default: pretty_json = false
 
 ; Used to construct invite/create-journal links.
 base_url = "https://journ.example.org"
@@ -43,23 +52,26 @@ base_url = "https://journ.example.org"
 ; sendmail drop-in, itself configured to relay through a real provider —
 ; this is what journ's own reference deployment uses). "smtp": talk
 ; directly to a relay using host/port/username/password below instead.
-driver = "sendmail"           ; sendmail | smtp
+; default: driver = "sendmail"   ; sendmail | smtp
 
 ; --- only used when driver = "smtp" ---
 host = "smtp.example.org"
-port = 587
+; default: port = 587
 username = "journ@example.org"
 password = "change-me"
-encryption = "tls"            ; tls | ssl | none
+; default: encryption = "tls"   ; tls | ssl | none
 
 ; --- used by both drivers ---
 from_email = "journ@example.org"
-from_name = "journ"
+; default: from_name = "journ"
 
 ; --- Tag color/behavior config -------------------------------------------
 ; Declaration order below IS the precedence order for row-highlight
 ; conflicts — see docs/spec/ui-ux.md § Tags & completion tracking.
-; These four are also the code-level defaults; override or add more here.
+; Unlike the keys above, there is no code-level fallback for tags — an
+; install with no [tag:*] sections at all simply has no tags configured.
+; These four are a suggested starting set, active (not commented) since
+; there's nothing to inherit from code if you delete them.
 
 [tag:critical]
 fg = "#ffd9d5"
