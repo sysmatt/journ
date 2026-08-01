@@ -8,8 +8,14 @@ declare(strict_types=1);
 // For local dev/testing, set JOURN_CONFIG_PATH to point at an arbitrary
 // ini file instead of relying on the docroot-parent convention.
 
-define('JOURN_API_DIR', __DIR__ . '/..');
-define('JOURN_ROOT', dirname(JOURN_API_DIR));
+// NOTE: dirname() does NOT resolve ".." lexically the way a shell or
+// realpath() would — dirname('/a/b/..') is '/a/b', not '/a'. Concatenating
+// '/..' onto __DIR__ and dirname()-ing the result (the original, buggy
+// version of this) silently computed one directory too shallow. Use
+// dirname(__DIR__) — an actual "go up one real level" — for each step
+// instead.
+define('JOURN_API_DIR', dirname(__DIR__));  // api/lib -> api
+define('JOURN_ROOT', dirname(JOURN_API_DIR)); // api -> repo root
 
 /**
  * Provisional defaults — the actual values are explicitly NOT finalized
