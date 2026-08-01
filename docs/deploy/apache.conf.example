@@ -1,0 +1,87 @@
+# Sample Apache vhost for journ (mod_ssl, mod_rewrite, mod_proxy_fcgi).
+# See docs/deployment.md for the full deployment walkthrough this fits
+# into, and docs/deploy/nginx.conf.example for the Nginx equivalent.
+# Values in ALL_CAPS are meant to be templated by whatever provisions
+# this (Ansible, etc.) — this file is a worked reference, not meant to
+# be used verbatim.
+#
+# Assumed layout on disk (see docs/spec/operations.md § Deployment model):
+#   JOURN_REPO_PATH/            e.g. /var/www/html/journ  (shallow git clone)
+#     webroot/                  built frontend — THIS is the DocumentRoot
+#     api/                      PHP backend — aliased at /api, nowhere else
+#   JOURN_REPO_PATH/../journ-config.ini   live config, sibling to the repo
+
+# ---- plain HTTP: redirect only, PWAs require a secure context ------------
+<VirtualHost *:80>
+    ServerName JOURN_DOMAIN
+    Redirect permanent / https://JOURN_DOMAIN/
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName JOURN_DOMAIN
+
+    SSLEngine on
+    # Cert paths shown as a certbot/Let's Encrypt layout — adjust to
+    # whatever's actually issuing the cert.
+    SSLCertificateFile    /etc/letsencrypt/live/JOURN_DOMAIN/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/JOURN_DOMAIN/privkey.pem
+
+    DocumentRoot JOURN_REPO_PATH/webroot
+
+    # MUST be >= max_upload_bytes in journ-config.ini, and >=
+    # upload_max_filesize/post_max_size in php.ini — all three have to
+    # agree, or attachments silently fail below whichever is smallest.
+    # See docs/deployment.md § File upload size. (31457280 = 30MB)
+    LimitRequestBody 31457280
+
+    <Directory JOURN_REPO_PATH/webroot>
+        Options -Indexes +FollowSymLinks
+        AllowOverride None
+        Require all granted
+
+        # SPA fallback: any path that isn't a real file (e.g. /invite,
+        # which only ever exists client-side — see
+        # docs/spec/identity-and-security.md § Onboarding) serves
+        # index.html and lets App.svelte parse the URL.
+        RewriteEngine On
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteCond %{REQUEST_FILENAME} !-d
+        RewriteRule ^ index.html [L]
+    </Directory>
+
+    # Service worker must never be aggressively cached, or installed
+    # clients never see updates — see docs/spec/ui-ux.md § Platform.
+    <LocationMatch "^/(sw\.js|manifest\.webmanifest)$">
+        Header set Cache-Control "no-cache"
+    </LocationMatch>
+
+    # ---- PHP API, aliased at /api ----------------------------------------
+    Alias /api JOURN_REPO_PATH/api
+
+    <Directory JOURN_REPO_PATH/api>
+        Options -Indexes
+        AllowOverride None
+        Require all granted
+
+        # Route every request through index.php's own router — same
+        # front-controller pattern as the Nginx config, and for the same
+        # reason: prevents anything under api/lib/ or api/routes/ from
+        # ever being executed directly (those are include-only files,
+        # not meant to be requested). api/index.php itself defensively
+        # strips a leading /api if REQUEST_URI still has it (Apache's
+        # mod_proxy_fcgi doesn't rewrite REQUEST_URI the way Nginx's
+        # fastcgi_param does, so don't rely on that alone).
+        RewriteEngine On
+        RewriteCond %{REQUEST_FILENAME} !^JOURN_REPO_PATH/api/index\.php$
+        RewriteRule ^ index.php [L]
+    </Directory>
+
+    <FilesMatch "\.php$">
+        SetHandler "proxy:unix:/run/php/php8.3-fpm.sock|fcgi://localhost" # adjust for your PHP version/OS
+    </FilesMatch>
+
+    # Everything else in the repo (src/, node_modules/, .git/,
+    # package.json, journ-config.ini.example, ...) is outside both
+    # DocumentRoot and the /api alias, so it's already unreachable
+    # through this vhost with no extra deny rules needed.
+</VirtualHost>

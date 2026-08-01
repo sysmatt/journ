@@ -1,0 +1,200 @@
+<script>
+  // Entries log — see docs/spec/ui-ux.md § Entries table. Most-recent-
+  // first, live-updating (no scroll-preservation handling for v1 — see
+  // spec), with the UTC/Local/T time-display modes and tag/mention chip
+  // rendering.
+  import {
+    entries, contacts, tagsConfig, timeMode, eventMeta, tRefEntryUuid,
+    currentJournalUuid, currentEventUuid, editEntry, trashEntry,
+  } from '../stores.js';
+  import { renderEntryText, deriveDisplayName } from '../render.js';
+  import { attachmentUrl } from '../api.js';
+
+  let { baseUrl } = $props();
+
+  let showTrashed = $state(false);
+  let editingUuid = $state(null);
+  let editText = $state('');
+
+  let closed = $derived(!!$eventMeta?.closed);
+
+  let visibleEntries = $derived($entries.filter((e) => showTrashed || !e.trashed));
+
+  // T-mode: default reference = most recent entry (first in the array).
+  $effect(() => {
+    if ($timeMode === 't' && !$tRefEntryUuid && $entries.length > 0) {
+      tRefEntryUuid.set($entries[0].uuid);
+    }
+  });
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  function fmtAbsolute(iso, useLocal) {
+    const d = new Date(iso);
+    const h = useLocal ? d.getHours() : d.getUTCHours();
+    const m = useLocal ? d.getMinutes() : d.getUTCMinutes();
+    const mo = useLocal ? d.getMonth() : d.getUTCMonth();
+    const day = useLocal ? d.getDate() : d.getUTCDate();
+    return { time: `${pad(h)}:${pad(m)}`, zone: useLocal ? '' : 'Z', date: `${pad(mo + 1)}-${pad(day)}` };
+  }
+
+  function fmtDelta(entryIso, refIso) {
+    const deltaMs = new Date(entryIso).getTime() - new Date(refIso).getTime();
+    const sign = deltaMs < 0 ? '−' : '+';
+    const totalSec = Math.round(Math.abs(deltaMs) / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return `T${sign}${pad(h)}:${pad(m)}:${pad(s)}`;
+  }
+
+  function rowTime(entry) {
+    if ($timeMode === 't') {
+      const ref = $entries.find((e) => e.uuid === $tRefEntryUuid) || $entries[0];
+      return { display: fmtDelta(entry.created_at, ref?.created_at ?? entry.created_at), date: null };
+    }
+    const f = fmtAbsolute(entry.created_at, $timeMode === 'local');
+    return { display: `${f.time}${f.zone}`, date: f.date };
+  }
+
+  function rendered(entry) {
+    return renderEntryText(entry.text, { contactsByUuid: $contacts, tags: $tagsConfig });
+  }
+
+  function startEdit(entry) {
+    editingUuid = entry.uuid;
+    editText = entry.text;
+  }
+
+  async function saveEdit() {
+    await editEntry(editingUuid, editText);
+    editingUuid = null;
+  }
+
+  function cancelEdit() {
+    editingUuid = null;
+  }
+</script>
+
+<div class="log">
+  <div class="log-head">
+    <span>Time</span><span>Author</span><span>Entry</span><span></span>
+  </div>
+
+  {#each visibleEntries as entry (entry.uuid)}
+    {@const t = rowTime(entry)}
+    {@const r = rendered(entry)}
+    <div class="entry-row" class:is-trashed={entry.trashed} style={r.rowHighlight ? `background: ${r.rowHighlight.bg}22;` : ''}>
+      <div class="ts">
+        {#if $timeMode === 't'}
+          <input
+            type="radio"
+            name="t-ref"
+            class="t-radio"
+            checked={entry.uuid === $tRefEntryUuid}
+            onchange={() => tRefEntryUuid.set(entry.uuid)}
+          />
+        {/if}
+        <div class="ts-stack tabular">
+          <span class="time">{t.display}</span>
+          {#if t.date}<span class="date">{t.date}</span>{/if}
+        </div>
+      </div>
+
+      <div class="author">
+        <span class="avatar">{deriveDisplayName($contacts[entry.author]).slice(0, 2).toUpperCase()}</span>
+        <span class="name">{deriveDisplayName($contacts[entry.author])}</span>
+      </div>
+
+      <div class="entry-text">
+        {#if editingUuid === entry.uuid}
+          <div class="edit-row">
+            <textarea bind:value={editText}></textarea>
+            <button type="button" class="ghost-btn" onclick={cancelEdit}>Cancel</button>
+            <button type="button" class="primary-btn" onclick={saveEdit}>Save</button>
+          </div>
+        {:else}
+          {@html r.html}
+          {#each entry.attachments || [] as att}
+            <div class="attach-tag">
+              <a href={attachmentUrl(baseUrl, $currentJournalUuid, $currentEventUuid, att.storage_filename)} target="_blank" rel="noopener noreferrer">
+                📎 {att.original_filename}
+              </a>
+            </div>
+          {/each}
+        {/if}
+      </div>
+
+      <div class="row-actions">
+        {#if !closed && editingUuid !== entry.uuid}
+          <button class="icon-btn" title="Edit" onclick={() => startEdit(entry)}>✎</button>
+          <button class="icon-btn" title={entry.trashed ? 'Restore' : 'Trash'} onclick={() => trashEntry(entry.uuid, !entry.trashed)}>🗑</button>
+        {/if}
+      </div>
+    </div>
+  {:else}
+    <div class="empty">No entries yet.</div>
+  {/each}
+</div>
+
+<div class="ops-bar">
+  <label class="checkline">
+    <input type="checkbox" bind:checked={showTrashed} />
+    Show trashed entries
+  </label>
+</div>
+
+<style>
+  .log { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .log-head {
+    display: grid;
+    grid-template-columns: 108px 118px 1fr 64px;
+    gap: 14px;
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .log-head span { font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+
+  .entry-row {
+    display: grid;
+    grid-template-columns: 108px 118px 1fr 64px;
+    gap: 14px;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border-soft);
+    align-items: start;
+  }
+  .entry-row:last-child { border-bottom: none; }
+  .entry-row.is-trashed { opacity: 0.5; }
+  .entry-row.is-trashed .entry-text { text-decoration: line-through; text-decoration-color: var(--muted); }
+
+  .ts { display: flex; align-items: center; gap: 7px; }
+  .ts-stack { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-dim); white-space: nowrap; display: flex; flex-direction: column; gap: 1px; }
+  .ts-stack .date { font-size: 0.66rem; color: var(--muted); }
+  .t-radio { width: 14px; height: 14px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
+
+  .author { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  .author .avatar { width: 20px; height: 20px; font-size: 0.6rem; }
+  .author .name { font-size: 0.83rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .entry-text { font-size: 0.92rem; line-height: 1.55; }
+  .entry-text :global(a) { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  .edit-row { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .edit-row textarea { width: 100%; min-height: 60px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 0.88rem; }
+
+  .attach-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 0.74rem; color: var(--ink-dim); background: var(--surface-2); border: 1px solid var(--border); padding: 2px 8px 2px 6px; border-radius: 6px; margin-top: 6px; }
+  .attach-tag a { color: inherit; text-decoration: none; }
+
+  .row-actions { display: flex; gap: 2px; justify-content: flex-end; }
+  .row-actions .icon-btn { width: 34px; height: 34px; font-size: 1.2rem; border-radius: 7px; }
+
+  .empty { padding: 24px; text-align: center; color: var(--muted); font-size: 0.85rem; }
+
+  .ops-bar { display: flex; align-items: center; gap: 10px; padding: 10px 4px 0; }
+  .checkline { display: flex; align-items: center; gap: 7px; font-size: 0.8rem; color: var(--ink-dim); }
+
+  @media (max-width: 720px) {
+    .log-head, .entry-row { grid-template-columns: 84px 1fr 46px; }
+    .log-head span:nth-child(2), .author { display: none; }
+  }
+</style>

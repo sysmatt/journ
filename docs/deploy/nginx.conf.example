@@ -1,0 +1,78 @@
+# Sample Nginx vhost for journ. See docs/deployment.md for the full
+# deployment walkthrough this fits into. Values in ALL_CAPS are meant to
+# be templated by whatever provisions this (Ansible, etc.) — this file is
+# a worked reference, not meant to be used verbatim.
+#
+# Assumed layout on disk (see docs/spec/operations.md § Deployment model):
+#   JOURN_REPO_PATH/            e.g. /var/www/html/journ  (shallow git clone)
+#     webroot/                  built frontend — THIS is the DocumentRoot
+#     api/                      PHP backend — aliased at /api, nowhere else
+#   JOURN_REPO_PATH/../journ-config.ini   live config, sibling to the repo
+
+# ---- plain HTTP: redirect only, PWAs require a secure context ------------
+server {
+    listen 80;
+    listen [::]:80;
+    server_name JOURN_DOMAIN;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name JOURN_DOMAIN;
+
+    # Cert paths shown as a certbot/Let's Encrypt layout — adjust to
+    # whatever's actually issuing the cert.
+    ssl_certificate     /etc/letsencrypt/live/JOURN_DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/JOURN_DOMAIN/privkey.pem;
+
+    root JOURN_REPO_PATH/webroot;
+    index index.html;
+
+    # MUST be >= max_upload_bytes in journ-config.ini, and >=
+    # upload_max_filesize/post_max_size in php.ini — all three have to
+    # agree, or attachments silently fail below whichever is smallest.
+    # See docs/deployment.md § File upload size.
+    client_max_body_size 30m;
+
+    # ---- static PWA frontend --------------------------------------------
+    # SPA fallback: any path that isn't a real file (e.g. /invite, which
+    # only ever exists client-side — see docs/spec/identity-and-security.md
+    # § Onboarding) serves index.html and lets App.svelte parse the URL.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Service worker must never be aggressively cached, or installed
+    # clients never see updates — see docs/spec/ui-ux.md § Platform.
+    location = /sw.js {
+        add_header Cache-Control "no-cache";
+        try_files $uri =404;
+    }
+    location = /manifest.webmanifest {
+        add_header Cache-Control "no-cache";
+        try_files $uri =404;
+    }
+
+    # ---- PHP API, aliased at /api ----------------------------------------
+    # Deliberately NOT a generic \.php$ handler: every request under /api/
+    # is routed through api/index.php's own router (see api/index.php),
+    # regardless of the path requested. This is what prevents anything
+    # under api/lib/ or api/routes/ from ever being executed directly —
+    # SCRIPT_FILENAME below is hardcoded to index.php, full stop.
+    #
+    # Everything else in the repo (api/lib, api/routes, src/, node_modules,
+    # .git, package.json, journ-config.ini.example, ...) is OUTSIDE
+    # `root` above and therefore already unreachable through this vhost
+    # with no extra deny rules needed — DocumentRoot is webroot/ only.
+    location /api/ {
+        rewrite ^/api/(.*)$ /$1 break;
+
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock; # adjust for your PHP version/OS
+        fastcgi_param SCRIPT_FILENAME JOURN_REPO_PATH/api/index.php;
+        fastcgi_param REQUEST_URI $uri$is_args$args; # the STRIPPED path — api/index.php expects this, see its own header comment
+        include fastcgi_params;
+    }
+}

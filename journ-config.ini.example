@@ -1,0 +1,72 @@
+; Copy this file to journ-config.ini ONE LEVEL ABOVE the cloned repo
+; (the docroot parent), not inside it — see docs/spec/operations.md
+; § Deployment model. This keeps server-specific settings outside git,
+; so `git pull` / a fresh shallow clone never overwrites them.
+;
+; Example: if this repo is cloned to /var/www/html/journ/, place the
+; live config at /var/www/html/journ-config.ini
+
+[general]
+
+; Gates minting a brand-new journal (see docs/spec/identity-and-security.md
+; § Bootstrap). Distribute via a "create new journal" link, not this raw
+; value — see that doc for why.
+bootstrap_secret = "change-me-generate-a-long-random-value"
+
+; Gates break-glass recovery on an EXISTING journal — deliberately a
+; separate, more tightly-held secret from bootstrap_secret. Keep this
+; with the server operator only.
+recovery_secret = "change-me-generate-a-different-long-random-value"
+
+; Where journal data (JSON fragments + attachments) lives. Deliberately
+; outside the web-servable docroot. See docs/spec/operations.md.
+data_root = "/var/local/journ"
+
+; Provisional, not finalized — see docs/spec/operations.md § Config
+; reference for the open question on what these should actually be.
+max_upload_bytes = 26214400   ; 25MB
+compaction_threshold = 500
+
+; Used to construct invite/create-journal links.
+base_url = "https://journ.example.org"
+
+[smtp]
+host = "smtp.example.org"
+port = 587
+username = "journ@example.org"
+password = "change-me"
+encryption = "tls"            ; tls | ssl | none
+from_email = "journ@example.org"
+from_name = "journ"
+
+; --- Tag color/behavior config -------------------------------------------
+; Declaration order below IS the precedence order for row-highlight
+; conflicts — see docs/spec/ui-ux.md § Tags & completion tracking.
+; These four are also the code-level defaults; override or add more here.
+
+[tag:critical]
+fg = "#ffd9d5"
+bg = "#7a2a2a"
+highlight_row = true
+
+[tag:decision]
+fg = "#ffe4ad"
+bg = "#6b4d17"
+highlight_row = false
+
+[tag:rush]
+fg = "#ffd7ad"
+bg = "#6b3d17"
+highlight_row = false
+
+[tag:action]
+fg = "#cfe3ff"
+bg = "#1f3f66"
+highlight_row = false
+
+; Fallback style for any tag word not otherwise recognized — an ordinary
+; entry in this same mechanism, not a hardcoded special case.
+[tag:default]
+fg = "#16222e"
+bg = "#cfe0f5"
+highlight_row = false
