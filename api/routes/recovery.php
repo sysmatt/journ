@@ -33,7 +33,7 @@ function journ_route_recover(string $journalUuid): void
         'email' => $body['email'] ?? null,
         'secret_hash' => journ_hash_secret($secret),
     ];
-    journ_write_fragment(journ_journal_dir($journalUuid), 'contact.' . journ_uuidv4() . '.json', json_encode($fragment, JSON_UNESCAPED_SLASHES));
+    journ_write_fragment(journ_journal_dir($journalUuid), 'contact.' . journ_uuidv4() . '.json', json_encode($fragment, journ_json_flags()));
 
     journ_json(['contact' => $contactUuid, 'secret' => $secret], 201);
 }

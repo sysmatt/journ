@@ -19,6 +19,16 @@ function journ_now(): string
     return gmdate('Y-m-d\TH:i:s\Z');
 }
 
+/** json_encode() flags for anything written to a fragment file — adds JSON_PRETTY_PRINT when `pretty_json` is enabled in journ-config.ini (a debugging convenience; off by default since it roughly doubles fragment file size for no functional benefit). */
+function journ_json_flags(): int
+{
+    $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+    if (journ_config()['pretty_json']) {
+        $flags |= JSON_PRETTY_PRINT;
+    }
+    return $flags;
+}
+
 function journ_uuidv4(): string
 {
     $data = random_bytes(16);

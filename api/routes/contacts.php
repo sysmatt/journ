@@ -78,7 +78,7 @@ function journ_route_bulk_contacts(string $journalUuid): void
             'email' => $email,
             'secret_hash' => journ_hash_secret($secret),
         ];
-        journ_write_fragment(journ_journal_dir($journalUuid), 'contact.' . journ_uuidv4() . '.json', json_encode($fragment, JSON_UNESCAPED_SLASHES));
+        journ_write_fragment(journ_journal_dir($journalUuid), 'contact.' . journ_uuidv4() . '.json', json_encode($fragment, journ_json_flags()));
 
         $invited = false;
         if ($sendInvites) {

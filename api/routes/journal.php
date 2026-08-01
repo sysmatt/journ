@@ -65,9 +65,9 @@ function journ_route_create_journal(): void
     // Write everything now that all generation succeeded — avoids a
     // partially-created journal if something above had failed.
     $journalDir = journ_journal_dir($journalUuid);
-    journ_write_fragment($journalDir, 'metadata.' . journ_uuidv4() . '.json', json_encode($metadata, JSON_UNESCAPED_SLASHES));
+    journ_write_fragment($journalDir, 'metadata.' . journ_uuidv4() . '.json', json_encode($metadata, journ_json_flags()));
     foreach ($contactFragments as $cf) {
-        journ_write_fragment($journalDir, $cf['filename'], json_encode($cf['content'], JSON_UNESCAPED_SLASHES));
+        journ_write_fragment($journalDir, $cf['filename'], json_encode($cf['content'], journ_json_flags()));
     }
 
     journ_json(['journal' => $journalUuid, 'contacts' => $issued], 201);

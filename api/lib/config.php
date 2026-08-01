@@ -23,8 +23,9 @@ define('JOURN_ROOT', dirname(JOURN_API_DIR)); // api -> repo root
  * the app runs sanely out of the box; override them in journ-config.ini.
  */
 const JOURN_DEFAULT_MAX_UPLOAD_BYTES = 25 * 1024 * 1024;   // 25MB, provisional
-const JOURN_DEFAULT_COMPACTION_THRESHOLD = 500;              // provisional
+const JOURN_DEFAULT_COMPACTION_THRESHOLD = 10;                // provisional
 const JOURN_DEFAULT_DATA_ROOT = '/var/local/journ';
+const JOURN_DEFAULT_PRETTY_JSON = false;
 
 function journ_config_path(): string
 {
@@ -77,6 +78,7 @@ function journ_config(): array
         'data_root'            => rtrim((string) ($general['data_root'] ?? JOURN_DEFAULT_DATA_ROOT), '/'),
         'max_upload_bytes'     => (int) ($general['max_upload_bytes'] ?? JOURN_DEFAULT_MAX_UPLOAD_BYTES),
         'compaction_threshold' => (int) ($general['compaction_threshold'] ?? JOURN_DEFAULT_COMPACTION_THRESHOLD),
+        'pretty_json'          => (bool) ($general['pretty_json'] ?? JOURN_DEFAULT_PRETTY_JSON),
         'base_url'             => $general['base_url'] ?? null,
         'smtp' => [
             // 'sendmail' (default): hand off to the local MTA via PHP's

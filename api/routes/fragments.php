@@ -57,8 +57,15 @@ function journ_route_put_fragment(string $journalUuid, string $filename): void
     journ_require_contact_secret($journalUuid);
 
     $raw = file_get_contents('php://input');
-    if ($raw === false || json_decode($raw) === null) {
+    $decoded = $raw === false ? null : json_decode($raw, true);
+    if ($raw === false || $decoded === null) {
         journ_error('invalid_request', 'Body must be valid JSON.');
+    }
+    // Fragment bodies arrive from the client already JSON-encoded — only
+    // pay the decode/re-encode cost when pretty_json actually wants a
+    // different serialization than what the client sent.
+    if (journ_config()['pretty_json']) {
+        $raw = json_encode($decoded, journ_json_flags());
     }
 
     $written = journ_write_fragment(journ_journal_dir($journalUuid), $filename, $raw);
@@ -83,8 +90,12 @@ function journ_route_put_event_fragment(string $journalUuid, string $eventUuid, 
     journ_require_contact_secret($journalUuid);
 
     $raw = file_get_contents('php://input');
-    if ($raw === false || json_decode($raw) === null) {
+    $decoded = $raw === false ? null : json_decode($raw, true);
+    if ($raw === false || $decoded === null) {
         journ_error('invalid_request', 'Body must be valid JSON.');
+    }
+    if (journ_config()['pretty_json']) {
+        $raw = json_encode($decoded, journ_json_flags());
     }
 
     $written = journ_write_fragment(journ_event_dir($journalUuid, $eventUuid), $filename, $raw);

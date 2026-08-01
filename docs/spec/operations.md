@@ -175,6 +175,7 @@ anyone noticing until two conflicting tags appear in the same entry.
 | Journal data storage path | Default `/var/local/journ/` | Locked in |
 | Max attachment upload size | Proposed **5GB** — flagged for double-checking (possible typo for 5MB; a notable outlier against the "not a lot of data" assumption elsewhere) | **Not finalized** |
 | Compaction fragment-count trigger | Proposed **10** — flagged as likely too aggressive; at that threshold compaction would fire almost continuously during a busy incident rather than functioning as occasional long-term-sprawl cleanup | **Not finalized** |
+| `pretty_json` (bool) | Indent fragment JSON on disk for readability while poking around `data_root` in dev; off by default (doubles file size, no functional benefit) | Locked in |
 | `[tag:NAME]` sections (repeatable) | `fg`, `bg`, `highlight_row` per tag word; declaration order = precedence | Locked in, see `ui-ux.md` § Tags |
 | `[tag:default]` | Fallback style for unrecognized tag words | Locked in |
 

@@ -25,7 +25,13 @@ data_root = "/var/local/journ"
 ; Provisional, not finalized — see docs/spec/operations.md § Config
 ; reference for the open question on what these should actually be.
 max_upload_bytes = 26214400   ; 25MB
-compaction_threshold = 500
+compaction_threshold = 10
+
+; Pretty-print fragment JSON on disk (indented, human-readable) instead of
+; the compact single-line form. Convenient while poking around data_root
+; during development/debugging; off by default since it roughly doubles
+; fragment file size for no functional benefit in production.
+pretty_json = false
 
 ; Used to construct invite/create-journal links.
 base_url = "https://journ.example.org"

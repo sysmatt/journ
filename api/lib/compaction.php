@@ -67,7 +67,7 @@ function journ_maybe_compact_journal_metadata(string $journalUuid): void
     }
 
     $newFilename = 'metadata.' . journ_uuidv4() . '.json';
-    journ_write_fragment(journ_journal_dir($journalUuid), $newFilename, json_encode($winner['data'], JSON_UNESCAPED_SLASHES));
+    journ_write_fragment(journ_journal_dir($journalUuid), $newFilename, json_encode($winner['data'], journ_json_flags()));
     journ_archive_originals($journalUuid, array_column($found, 'path'));
 }
 
@@ -85,7 +85,7 @@ function journ_maybe_compact_contacts(string $journalUuid): void
 
     foreach ($winners as $winner) {
         $newFilename = 'contact.' . journ_uuidv4() . '.json';
-        journ_write_fragment(journ_journal_dir($journalUuid), $newFilename, json_encode($winner['data'], JSON_UNESCAPED_SLASHES));
+        journ_write_fragment(journ_journal_dir($journalUuid), $newFilename, json_encode($winner['data'], journ_json_flags()));
     }
     journ_archive_originals($journalUuid, array_column($found, 'path'));
 }
@@ -107,7 +107,7 @@ function journ_maybe_compact_event_metadata(string $journalUuid, string $eventUu
     }
 
     $newFilename = 'metadata.' . journ_uuidv4() . '.json';
-    journ_write_fragment(journ_event_dir($journalUuid, $eventUuid), $newFilename, json_encode($winner['data'], JSON_UNESCAPED_SLASHES));
+    journ_write_fragment(journ_event_dir($journalUuid, $eventUuid), $newFilename, json_encode($winner['data'], journ_json_flags()));
     journ_archive_originals($journalUuid, array_column($found, 'path'));
 }
 
@@ -138,6 +138,6 @@ function journ_maybe_compact_entries(string $journalUuid, string $eventUuid): vo
 
     // Filename = uuid of the first entry, same convention as any normal write.
     $newFilename = 'entry.' . $entries[0]['uuid'] . '.json';
-    journ_write_fragment(journ_event_dir($journalUuid, $eventUuid), $newFilename, json_encode(['v' => 1, 'entries' => $entries], JSON_UNESCAPED_SLASHES));
+    journ_write_fragment(journ_event_dir($journalUuid, $eventUuid), $newFilename, json_encode(['v' => 1, 'entries' => $entries], journ_json_flags()));
     journ_archive_originals($journalUuid, array_column($found, 'path'));
 }
