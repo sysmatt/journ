@@ -7,6 +7,20 @@
 
   let { mode, journalMeta = null, eventMeta = null, baseUrl, prefillBootstrapSecret = '', onClose } = $props();
 
+  // <input type="datetime-local"> edits a LOCAL wall-clock value with no
+  // timezone attached — it is NOT the same string as a UTC ISO timestamp.
+  // Bug fixed 2026-08-01: feeding it a UTC value directly (just sliced)
+  // made it display the UTC hour labeled as if it were local, and on
+  // submit the browser then reinterpreted that value as local and
+  // converted it back to UTC again — silently shifting start_at by the
+  // viewer's UTC offset. This converts properly in both directions using
+  // the LOCAL Date getters (not the UTC ones).
+  function isoToLocalInputValue(iso) {
+    const d = iso ? new Date(iso) : new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
   const titles = {
     'new-journal': 'New journal',
     'edit-journal': 'Edit journal',
@@ -20,7 +34,7 @@
   // is exactly the wanted behavior, not a missed $derived.
   let name = $state(mode === 'edit-journal' ? (journalMeta?.name ?? '') : '');
   let description = $state(mode === 'edit-event' ? (eventMeta?.description ?? '') : '');
-  let startAt = $state(mode === 'edit-event' && eventMeta?.start_at ? eventMeta.start_at.slice(0, 16) : new Date().toISOString().slice(0, 16));
+  let startAt = $state(isoToLocalInputValue(mode === 'edit-event' ? eventMeta?.start_at : null));
   let closed = $state(mode === 'edit-event' ? !!eventMeta?.closed : false);
   let creatorName = $state('');
   let creatorShortName = $state('');
