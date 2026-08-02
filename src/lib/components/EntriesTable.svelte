@@ -182,7 +182,7 @@
     display: grid;
     grid-template-columns: 108px 118px 1fr 64px;
     gap: 14px;
-    padding: 11px 16px;
+    padding: 6px 16px;
     border-bottom: 1px solid var(--border-soft);
     align-items: start;
   }
@@ -199,8 +199,17 @@
   .author .avatar { width: 20px; height: 20px; font-size: 0.6rem; }
   .author .name { font-size: 0.83rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  .entry-text { font-size: 0.92rem; line-height: 1.55; }
+  .entry-text { font-size: 0.92rem; line-height: 1.3; }
   .entry-text :global(a) { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  /* Markdown output (marked, via render.js) wraps a plain paragraph of
+     text in <p>, a list in <ul>/<ol>, etc — all block-level, all
+     carrying the browser's own default margin unless reset. Reset every
+     direct child to zero, then add space back ONLY between consecutive
+     children, so a single-paragraph entry (the overwhelming majority)
+     sits flush with no top/bottom buffer, while a rarer multi-block
+     entry still gets visual separation between its parts. */
+  .entry-text :global(> *) { margin: 0; }
+  .entry-text :global(> * + *) { margin-top: 0.6em; }
   .edit-row { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
   .edit-row textarea { width: 100%; min-height: 60px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; font-size: 0.88rem; }
 
