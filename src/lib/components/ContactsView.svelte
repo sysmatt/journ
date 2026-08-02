@@ -209,9 +209,10 @@
         {#if c.deleted}
           <button class="icon-btn" title="Reactivate contact (issues a fresh key)" disabled={busyContact === uuid} onclick={() => regenerate(uuid)}>⟲</button>
         {:else}
+          {@const noSecretTip = "Invite secrets aren't stored anywhere — only the device that created or last regenerated this contact's key ever knows it, and only until you navigate away. Use ⟳ Regenerate to issue a new invite link (this immediately logs out any device using the old one)."}
           <button class="icon-btn" title="Edit name / short name / email" disabled={busyContact === uuid} onclick={() => openEdit(uuid)}>✎</button>
-          <button class="icon-btn" title="Copy invite link" disabled={!heldSecrets[uuid]} onclick={() => copyLink(uuid)}>🔗</button>
-          <button class="icon-btn" title="Send invite email" disabled={!heldSecrets[uuid] || busyContact === uuid} onclick={() => sendInviteEmail(uuid)}>✉</button>
+          <button class="icon-btn" title={heldSecrets[uuid] ? 'Copy invite link' : noSecretTip} disabled={!heldSecrets[uuid]} onclick={() => copyLink(uuid)}>🔗</button>
+          <button class="icon-btn" title={heldSecrets[uuid] ? 'Send invite email' : noSecretTip} disabled={!heldSecrets[uuid] || busyContact === uuid} onclick={() => sendInviteEmail(uuid)}>✉</button>
           <button class="icon-btn" title="Regenerate key (locks out current holder)" disabled={busyContact === uuid} onclick={() => regenerate(uuid)}>⟳</button>
           {#if uuid !== ownContactUuid}
             <button class="icon-btn danger" title="Delete contact (keeps their past entries attributed to them)" disabled={busyContact === uuid} onclick={() => deleteContact(uuid)}>🗑</button>
