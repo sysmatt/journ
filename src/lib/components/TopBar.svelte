@@ -196,6 +196,13 @@
     max-width: 220px;
     text-overflow: ellipsis;
   }
+  /* Belt-and-suspenders alongside color-scheme in app.css — some
+     browsers (Firefox, some Chromium builds) honor option-level
+     background/color directly in the dropdown popup. */
+  .picker-field select option {
+    background: var(--surface-2);
+    color: var(--ink);
+  }
 
   .divider-v { width: 1px; align-self: stretch; background: var(--border); margin: 2px 4px; }
 

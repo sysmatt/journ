@@ -7,7 +7,7 @@
   import Composer from './lib/components/Composer.svelte';
   import EntriesTable from './lib/components/EntriesTable.svelte';
   import ContactsView from './lib/components/ContactsView.svelte';
-  import { initApp, theme, currentJournalUuid, currentEventUuid, eventMeta, knownJournals, selectJournal, rememberedBootstrapSecret, rememberBootstrapSecret } from './lib/stores.js';
+  import { initApp, theme, currentJournalUuid, currentEventUuid, eventMeta, eventsSummary, knownJournals, selectJournal, selectEvent, rememberedBootstrapSecret, rememberBootstrapSecret } from './lib/stores.js';
   import { saveIdentity, saveJournalBookmark, getKnownJournals } from './lib/db.js';
 
   let view = $state('journal'); // 'journal' | 'contacts'
@@ -33,6 +33,12 @@
   // history for as long as the modal happens to stay closed.
   let prefillBootstrapSecret = $state('');
 
+  // A ?j=&e=... link (see stores.js syncUrlParams) pointing at a journal/
+  // event this device doesn't actually have — cleared bookmark, wrong
+  // device, stale/bad link. Distinct from "nothing selected yet", which
+  // just shows the ordinary hint text.
+  let urlError = $state(null);
+
   onMount(async () => {
     document.documentElement.setAttribute('data-theme', 'dark');
     await initApp();
@@ -48,13 +54,26 @@
     // Create-journal link: /?bootstrap=... — see
     // docs/spec/identity-and-security.md § Bootstrap.
     const bootstrap = params.get('bootstrap');
+    // Deep link to a specific journal/event this device already knows
+    // about — written by stores.js's syncUrlParams on every
+    // selectJournal/selectEvent, read back here so a reload (including
+    // the PWA "new version available" reload) restores exactly where you
+    // were instead of dropping back to nothing selected.
+    const linkJournalUuid = params.get('j');
+    const linkEventUuid = params.get('e');
 
     if (journalUuid && contactUuid && secret) {
       await saveIdentity(journalUuid, contactUuid, secret);
       await saveJournalBookmark(journalUuid, journalUuid, apiBaseUrl); // name corrected once the journal metadata syncs
       knownJournals.set(await getKnownJournals());
       await selectJournal(journalUuid, apiBaseUrl);
-      history.replaceState({}, '', '/'); // scrub the secret (and /invite path) out of the URL bar/history
+      // selectJournal() already wrote ?j=<uuid> via syncUrlParams, but it
+      // only touches j/e — it doesn't know about (and won't strip) the
+      // journal/contact/secret params still sitting alongside it, so
+      // scrub down to just what selectJournal wrote rather than to '/',
+      // or we'd throw away the deep link we just gained along with the
+      // plaintext secret we actually need to get rid of.
+      history.replaceState({}, '', `/?j=${journalUuid}`);
     } else {
       if (bootstrap) {
         prefillBootstrapSecret = bootstrap;
@@ -63,9 +82,29 @@
       } else {
         prefillBootstrapSecret = get(rememberedBootstrapSecret);
       }
-      const known = await getKnownJournals();
-      if (known.length > 0) {
-        await selectJournal(known[0].uuid, known[0].baseUrl);
+
+      if (linkJournalUuid) {
+        const known = await getKnownJournals();
+        const match = known.find((k) => k.uuid === linkJournalUuid);
+        if (!match) {
+          urlError = 'Journal cannot be found. Please request a new invite link.';
+          history.replaceState({}, '', '/');
+        } else {
+          const firstSync = await selectJournal(match.uuid, match.baseUrl);
+          if (linkEventUuid) {
+            await firstSync; // give the network pull one real attempt before concluding it's missing — a fresh device's local cache starts empty
+            if (get(eventsSummary)[linkEventUuid]) {
+              await selectEvent(linkEventUuid);
+            } else {
+              urlError = 'Event cannot be found. Please request a new invite link.';
+            }
+          }
+        }
+      } else {
+        const known = await getKnownJournals();
+        if (known.length > 0) {
+          await selectJournal(known[0].uuid, known[0].baseUrl);
+        }
       }
     }
 
@@ -89,6 +128,13 @@
   <button type="button" class="update-banner" onclick={applyUpdate}>
     New version available — click to refresh
   </button>
+{/if}
+
+{#if urlError}
+  <div class="error-banner">
+    <span>{urlError}</span>
+    <button type="button" class="dismiss" onclick={() => (urlError = null)} aria-label="Dismiss">&times;</button>
+  </div>
 {/if}
 
 <TopBar baseUrl={apiBaseUrl} {prefillBootstrapSecret} />
@@ -127,6 +173,31 @@
     font-size: 0.85rem;
     padding: 8px;
     cursor: pointer;
+  }
+
+  .error-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+    border-bottom: 1px solid var(--danger);
+    background: var(--danger);
+    color: var(--accent-ink);
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 8px;
+  }
+  .error-banner .dismiss {
+    appearance: none;
+    border: none;
+    background: none;
+    color: inherit;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
   }
 
   .app {

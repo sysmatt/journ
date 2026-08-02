@@ -104,12 +104,27 @@ export function getEngine() {
   return engine;
 }
 
+/**
+ * Reflects the current journal/event into the URL (replaceState — no
+ * history-entry growth, so browser back/forward deliberately does NOT
+ * step through events) so a reload or the PWA update-and-reload no
+ * longer drops back to "nothing selected" — see App.svelte's onMount,
+ * which reads these same `j`/`e` params to restore this on load.
+ */
+function syncUrlParams(journalUuid, eventUuid) {
+  const url = new URL(window.location.href);
+  if (journalUuid) url.searchParams.set('j', journalUuid); else url.searchParams.delete('j');
+  if (eventUuid) url.searchParams.set('e', eventUuid); else url.searchParams.delete('e');
+  window.history.replaceState({}, '', url);
+}
+
 export async function selectJournal(journalUuid, baseUrl) {
   if (engine) engine.stop();
   currentJournalUuid.set(journalUuid);
   currentEventUuid.set(null);
   eventMeta.set(null);
   entries.set([]);
+  syncUrlParams(journalUuid, null);
 
   engine = new SyncEngine({
     baseUrl,
@@ -127,13 +142,20 @@ export async function selectJournal(journalUuid, baseUrl) {
   _identityCache.set(identity);
 
   await recomputeJournalLevel(journalUuid);
-  engine.start();
+  // Fire-and-forget for normal callers (switching journals should feel
+  // instant off the local cache) — but hand back the first-sync promise
+  // so a caller that specifically needs to know a pull was *attempted*
+  // (e.g. App.svelte validating a deep-linked event actually exists
+  // before giving up on it) can choose to await it.
+  const firstSync = engine.start();
 
   try {
     tagsConfig.set((await api.getTags(baseUrl)).tags);
   } catch {
     // offline on first load — chips fall back to defaults until a sync succeeds
   }
+
+  return firstSync;
 }
 
 // Internal — identity doesn't need to be reactive UI state, just needs to
@@ -143,6 +165,7 @@ const _identityCache = writable(null);
 export async function selectEvent(eventUuid) {
   currentEventUuid.set(eventUuid);
   tRefEntryUuid.set(null);
+  syncUrlParams(get(currentJournalUuid), eventUuid);
   await recomputeEventLevel(get(currentJournalUuid), eventUuid);
 }
 

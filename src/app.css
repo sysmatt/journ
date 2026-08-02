@@ -1,6 +1,15 @@
 /* Design tokens carried over from docs/spec/mockup.html — the validated
    starting palette/type system for the real app. See docs/spec/ui-ux.md. */
 :root {
+  /* Tells the browser to render NATIVE controls (select dropdown popups,
+     scrollbars, etc.) in a dark-appropriate palette by default — without
+     this, a <select>'s open popup uses the OS/browser's light-mode
+     default regardless of our own CSS, and our --ink (light) text color
+     still cascades into it, making every unselected row illegible
+     (light-on-white) except wherever the OS's own hover highlight
+     happens to force contrast. */
+  color-scheme: dark;
+
   --bg: #12151a;
   --surface: #181d24;
   --surface-2: #1f252d;
@@ -20,6 +29,8 @@
 }
 
 :root[data-theme="light"] {
+  color-scheme: light;
+
   --bg: #f5f3ee;
   --surface: #ffffff;
   --surface-2: #f1efe8;

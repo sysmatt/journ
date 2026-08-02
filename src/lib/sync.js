@@ -33,9 +33,11 @@ export class SyncEngine {
     this._status = 'offline';
   }
 
+  /** @returns {Promise<void>} the first sync attempt — callers may fire-and-forget this (the common case) or await it once when they need to know a pull was at least attempted before, e.g., deciding a deep-linked event doesn't exist. */
   start() {
-    this.syncNow();
+    const first = this.syncNow();
     this._timer = setInterval(() => this.syncNow(), this.intervalMs);
+    return first;
   }
 
   stop() {
