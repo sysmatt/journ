@@ -13,6 +13,12 @@ export const theme = writable('dark');
 export const timeMode = writable('utc'); // 'utc' | 'local' | 't' — see docs/spec/ui-ux.md
 export const tRefEntryUuid = writable(null); // T-mode reference row, resets per event selection
 
+// 'journal' | 'contacts' — which screen App.svelte shows below the top
+// bar. Lives here (not as local App.svelte state) because the toggle
+// itself now lives in TopBar.svelte, which needs to both read and
+// change it — see docs/spec/ui-ux.md § Top bar.
+export const currentView = writable('journal');
+
 // ---- journal/event selection ------------------------------------------
 export const knownJournals = writable([]); // [{uuid, name, baseUrl}]
 export const currentJournalUuid = writable(null);

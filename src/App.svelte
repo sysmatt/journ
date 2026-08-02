@@ -7,10 +7,8 @@
   import Composer from './lib/components/Composer.svelte';
   import EntriesTable from './lib/components/EntriesTable.svelte';
   import ContactsView from './lib/components/ContactsView.svelte';
-  import { initApp, theme, currentJournalUuid, currentEventUuid, eventMeta, eventsSummary, knownJournals, selectJournal, selectEvent, rememberedBootstrapSecret, rememberBootstrapSecret } from './lib/stores.js';
+  import { initApp, theme, currentJournalUuid, currentEventUuid, eventMeta, eventsSummary, knownJournals, selectJournal, selectEvent, rememberedBootstrapSecret, rememberBootstrapSecret, currentView } from './lib/stores.js';
   import { saveIdentity, saveJournalBookmark, getKnownJournals } from './lib/db.js';
-
-  let view = $state('journal'); // 'journal' | 'contacts'
 
   // Two DIFFERENT base URLs, deliberately not the same value — see
   // docs/deployment.md (Nginx/Apache configs) once written: the web
@@ -140,17 +138,9 @@
 <TopBar baseUrl={apiBaseUrl} {prefillBootstrapSecret} />
 
 <div class="app">
-  <div class="masthead">
-    <span class="mark">journ</span>
-    <div class="view-switch">
-      <button type="button" class:is-active={view === 'journal'} onclick={() => (view = 'journal')}>Journal</button>
-      <button type="button" class:is-active={view === 'contacts'} onclick={() => (view = 'contacts')}>Contacts</button>
-    </div>
-  </div>
-
   {#if !$currentJournalUuid}
     <p class="hint">Select or create a journal above to begin.</p>
-  {:else if view === 'contacts'}
+  {:else if $currentView === 'contacts'}
     <ContactsView baseUrl={apiBaseUrl} {siteBaseUrl} />
   {:else if !$currentEventUuid}
     <p class="hint">Select or create an event above to begin.</p>
@@ -208,13 +198,6 @@
     flex-direction: column;
     gap: 14px;
   }
-
-  .masthead { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 2px 2px 10px; }
-  .mark { font-family: var(--font-mono); font-size: 1rem; color: var(--accent); letter-spacing: 0.02em; }
-
-  .view-switch { display: flex; gap: 2px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 7px; padding: 2px; }
-  .view-switch button { appearance: none; border: none; background: transparent; color: var(--ink-dim); font-size: 0.8125rem; font-weight: 600; padding: 6px 13px; border-radius: 5px; cursor: pointer; }
-  .view-switch button.is-active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 0 var(--border-soft); }
 
   .hint { color: var(--muted); font-size: 0.9rem; text-align: center; padding: 40px 0; }
 </style>

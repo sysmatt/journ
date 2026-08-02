@@ -146,7 +146,7 @@
   {/if}
 
   <div class="composer-hint">
-    <kbd>Enter</kbd> posts · <kbd>@</kbd> mentions a contact ·
+    <kbd>Enter</kbd> posts · <kbd>Shift</kbd>+<kbd>Enter</kbd> for newline · <kbd>@</kbd> mentions a contact ·
     <code>tag:</code> / <code>update:</code> annotate the entry
   </div>
 

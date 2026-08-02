@@ -3,7 +3,7 @@
   import {
     knownJournals, currentJournalUuid, currentEventUuid,
     journalMeta, eventsSummary, eventMeta,
-    theme, timeMode, syncStatus,
+    theme, timeMode, syncStatus, currentView,
     setTheme, setTimeMode, selectJournal, selectEvent, resetLocalData,
   } from '../stores.js';
   import MetaModal from './MetaModal.svelte';
@@ -70,6 +70,8 @@
 </script>
 
 <div class="instrument-bar">
+  <span class="mark">journ</span>
+
   <div class="picker">
     <div class="picker-field">
       <span class="eyebrow">Journal</span>
@@ -116,6 +118,10 @@
     <button class="toggle-btn" onclick={toggleTheme} title="Toggle dark / light">
       <span aria-hidden="true">{$theme === 'dark' ? '☾' : '☀'}</span> {$theme === 'dark' ? 'Dark' : 'Light'}
     </button>
+    <div class="view-switch">
+      <button type="button" class:is-active={$currentView === 'journal'} onclick={() => currentView.set('journal')}>Journal</button>
+      <button type="button" class:is-active={$currentView === 'contacts'} onclick={() => currentView.set('contacts')}>Contacts</button>
+    </div>
     <div class="sync-pill" data-state={$syncStatus}>
       <span class="sync-dot"></span> {$syncStatus === 'synced' ? 'Synced' : $syncStatus === 'syncing' ? 'Syncing' : 'Offline'}
     </div>
@@ -139,6 +145,8 @@
     gap: 16px;
     flex-wrap: wrap;
   }
+
+  .mark { font-family: var(--font-mono); font-size: 1rem; color: var(--accent); letter-spacing: 0.02em; flex-shrink: 0; }
 
   .picker {
     display: flex;
@@ -178,4 +186,12 @@
      action, not something that should visually compete with everyday
      controls like the sync pill or theme toggle right next to it. */
   .reset-btn:hover { background: var(--danger); color: var(--accent-ink); }
+
+  /* Same tab-pill treatment as before, just re-homed here from
+     App.svelte's old masthead row (see docs/spec/ui-ux.md § Top bar) —
+     sized down slightly (30px tall) to match the toggle-btn/sync-pill
+     height it now sits between. */
+  .view-switch { display: flex; align-items: center; gap: 2px; height: 30px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 7px; padding: 2px; }
+  .view-switch button { appearance: none; border: none; background: transparent; color: var(--ink-dim); font-size: 0.78rem; font-weight: 600; height: 100%; padding: 0 11px; border-radius: 5px; cursor: pointer; }
+  .view-switch button.is-active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 0 var(--border-soft); }
 </style>
