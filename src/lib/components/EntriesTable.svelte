@@ -5,10 +5,12 @@
   // rendering.
   import {
     entries, contacts, tagsConfig, timeMode, eventMeta, tRefEntryUuid,
-    currentJournalUuid, currentEventUuid, editEntry, trashEntry, journalMeta,
+    currentJournalUuid, currentEventUuid, editEntry, trashEntry, journalMeta, theme,
   } from '../stores.js';
   import { renderEntryText, deriveDisplayName } from '../render.js';
   import { attachmentUrl } from '../api.js';
+  import { fmtAbsolute, fmtDelta } from '../time.js';
+  import { buildCsvReport, buildTextReport, buildHtmlReport, downloadFile, reportFilename } from '../report.js';
 
   // readOnly: used by the public dashboard's own instance of this same
   // component (docs/spec/ui-ux.md § Public dashboard) — hides the edit/
@@ -27,6 +29,34 @@
     await navigator.clipboard.writeText(dashboardUrl());
   }
 
+  // Report export (docs/spec/ui-ux.md § Report export) — entirely
+  // client-side, built from whatever's already in these same stores;
+  // no network call, no new endpoint. Authenticated app only per that
+  // spec — never rendered when readOnly (the public dashboard).
+  function reportData() {
+    return {
+      journalName: $journalMeta?.name || '',
+      eventMeta: $eventMeta,
+      entries: $entries,
+      contactsByUuid: $contacts,
+      tagsConfig: $tagsConfig,
+      timeMode: $timeMode,
+      tRefEntryUuid: $tRefEntryUuid,
+      theme: $theme,
+      generatedAt: new Date(),
+    };
+  }
+
+  function exportReport(build, ext, mimeType) {
+    const data = reportData();
+    const filename = reportFilename(data.journalName, data.eventMeta?.description, data.generatedAt, ext);
+    downloadFile(filename, build(data), mimeType);
+  }
+
+  const exportCsv = () => exportReport(buildCsvReport, 'csv', 'text/csv;charset=utf-8');
+  const exportHtml = () => exportReport(buildHtmlReport, 'html', 'text/html;charset=utf-8');
+  const exportText = () => exportReport(buildTextReport, 'txt', 'text/plain;charset=utf-8');
+
   let showTrashed = $state(false);
   let editingUuid = $state(null);
   let editText = $state('');
@@ -41,27 +71,6 @@
       tRefEntryUuid.set($entries[0].uuid);
     }
   });
-
-  function pad(n) { return String(n).padStart(2, '0'); }
-
-  function fmtAbsolute(iso, useLocal) {
-    const d = new Date(iso);
-    const h = useLocal ? d.getHours() : d.getUTCHours();
-    const m = useLocal ? d.getMinutes() : d.getUTCMinutes();
-    const mo = useLocal ? d.getMonth() : d.getUTCMonth();
-    const day = useLocal ? d.getDate() : d.getUTCDate();
-    return { time: `${pad(h)}:${pad(m)}`, zone: useLocal ? '' : 'Z', date: `${pad(mo + 1)}-${pad(day)}` };
-  }
-
-  function fmtDelta(entryIso, refIso) {
-    const deltaMs = new Date(entryIso).getTime() - new Date(refIso).getTime();
-    const sign = deltaMs < 0 ? '−' : '+';
-    const totalSec = Math.round(Math.abs(deltaMs) / 1000);
-    const h = Math.floor(totalSec / 3600);
-    const m = Math.floor((totalSec % 3600) / 60);
-    const s = totalSec % 60;
-    return `T${sign}${pad(h)}:${pad(m)}:${pad(s)}`;
-  }
 
   function rowTime(entry) {
     if ($timeMode === 't') {
@@ -157,6 +166,14 @@
     <input type="checkbox" bind:checked={showTrashed} />
     Show trashed entries
   </label>
+
+  {#if !readOnly}
+    <div class="ops-divider"></div>
+    <span class="export-label">Export:</span>
+    <button type="button" class="ghost-btn export-btn" onclick={exportCsv} title="Download this event as a CSV report">CSV</button>
+    <button type="button" class="ghost-btn export-btn" onclick={exportHtml} title="Download this event as a standalone HTML report">HTML</button>
+    <button type="button" class="ghost-btn export-btn" onclick={exportText} title="Download this event as a plain-text report">TXT</button>
+  {/if}
 </div>
 
 {#if !readOnly && $eventMeta?.public_secret}
@@ -223,6 +240,10 @@
 
   .ops-bar { display: flex; align-items: center; gap: 10px; padding: 10px 4px 0; }
   .checkline { display: flex; align-items: center; gap: 7px; font-size: 0.8rem; color: var(--ink-dim); }
+
+  .ops-divider { width: 1px; height: 18px; background: var(--border); }
+  .export-label { font-size: 0.76rem; color: var(--muted); }
+  .export-btn { padding: 5px 11px; font-size: 0.74rem; font-family: var(--font-mono); font-weight: 700; letter-spacing: 0.02em; }
 
   .public-notice {
     display: flex;

@@ -8,33 +8,13 @@
   // own polling fetch), so there's nothing to plumb through.
   import { eventMeta, entries, timeMode } from '../stores.js';
   import { computeCompletionPercent } from '../render.js';
+  import { fmtAbsolute, fmtDuration } from '../time.js';
 
   let now = $state(new Date());
   $effect(() => {
     const t = setInterval(() => (now = new Date()), 1000);
     return () => clearInterval(t);
   });
-
-  function pad(n) { return String(n).padStart(2, '0'); }
-
-  function fmtAbsolute(iso, useLocal) {
-    if (!iso) return { time: '—', zone: '', date: '' };
-    const d = new Date(iso);
-    const h = useLocal ? d.getHours() : d.getUTCHours();
-    const m = useLocal ? d.getMinutes() : d.getUTCMinutes();
-    const mo = useLocal ? d.getMonth() : d.getUTCMonth();
-    const day = useLocal ? d.getDate() : d.getUTCDate();
-    return { time: `${pad(h)}:${pad(m)}`, zone: useLocal ? '' : 'Z', date: `${pad(mo + 1)}-${pad(day)}` };
-  }
-
-  function fmtDuration(startIso, end) {
-    if (!startIso) return '—';
-    const totalSec = Math.max(0, Math.floor((end - new Date(startIso)) / 1000));
-    const h = Math.floor(totalSec / 3600);
-    const m = Math.floor((totalSec % 3600) / 60);
-    const s = totalSec % 60;
-    return `${pad(h)}:${pad(m)}:${pad(s)}`;
-  }
 
   let started = $derived(fmtAbsolute($eventMeta?.start_at, $timeMode === 'local'));
   let duration = $derived(fmtDuration($eventMeta?.start_at, now));

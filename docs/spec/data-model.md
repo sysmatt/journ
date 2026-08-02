@@ -96,6 +96,18 @@ the full security reasoning (why this needs real server-side
 enforcement unlike ordinary reads) and `ui-ux.md` § Public dashboard for
 the UI.
 
+### Report export
+
+CSV / Text / HTML snapshots of an event, generated entirely client-side
+from whatever's already loaded into the app's stores — see `ui-ux.md` §
+Report export for the UI and exact content of each format. Deliberately
+**not** a data type in this model at all: a report is never written
+anywhere (no fragment, no server round-trip of any kind), never synced,
+and has no server-side representation or endpoint. It's a one-off
+rendering of already-synced data into a downloaded file, gone the
+moment the browser tab closes unless the person saves the file
+themselves — the same "dumb pipe" backend has no idea reports exist.
+
 ### Event archive
 
 Distinct from entry-level trash (see below). Archiving an **entire

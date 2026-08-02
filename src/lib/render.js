@@ -133,6 +133,46 @@ export function deriveDisplayName(contact) {
   return 'Unknown';
 }
 
+/**
+ * Plain-text equivalent of renderEntryText(), for the CSV/Text report
+ * formats (docs/spec/ui-ux.md § Report export) — not a full markdown
+ * parse, just enough regex-based stripping to be readable rather than
+ * showing raw markdown syntax in a spreadsheet cell. `@mentions`
+ * resolve the SAME way the HTML renderer does (live, from the current
+ * contact record — not whatever name happened to be embedded in the
+ * markdown source at mention time, which may be stale if that contact
+ * was later renamed). `tag:`/`update:` tokens are left untouched — see
+ * extractTagTokens() above, they're already bare plain text in the
+ * stored source, nothing to strip.
+ */
+export function renderEntryPlainText(text, { contactsByUuid = {} } = {}) {
+  let out = text || '';
+
+  // [@Label](contact:uuid) -> @CurrentDisplayName
+  out = out.replace(/\[@([^\]]*)\]\(contact:([0-9a-fA-F-]+)\)/g, (_match, _label, uuid) => {
+    const contact = contactsByUuid?.[uuid];
+    return `@${contact ? (contact.short_name || contact.name || contact.email || uuid) : 'unknown'}`;
+  });
+
+  // Any other markdown link -> "text (url)"
+  out = out.replace(/\[([^\]]+)\]\(((?!contact:)[^)]+)\)/g, '$1 ($2)');
+
+  // Strip common inline/block markdown formatting marks — order matters
+  // (bold before italic, since **x** would otherwise partially match the
+  // single-asterisk italic pattern first).
+  out = out
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^>\s?/gm, '')
+    .replace(/^[-*+]\s+/gm, '• ');
+
+  return out.trim();
+}
+
 export function renderEntryText(text, { contactsByUuid = {}, tags = [] } = {}) {
   const tagConfig = new Map(tags.map((t) => [t.name.toLowerCase(), t]));
 

@@ -166,7 +166,7 @@ Below the entry-creation area, most-recent-first:
 
 | Column | Contents |
 |---|---|
-| Date/time | Time shown prominently, with the **date on a smaller line beneath it** (in both UTC and local display modes — a multi-day incident needs date context either way, and local-timezone display can put an entry on a different calendar date than its underlying UTC timestamp). Localized for display (local/UTC toggle), stored as UTC |
+| Date/time | Time shown prominently, with the **date on the same line, next to it, in a dimmer/smaller style** (in both UTC and local display modes — a multi-day incident needs date context either way, and local-timezone display can put an entry on a different calendar date than its underlying UTC timestamp). Localized for display (local/UTC toggle), stored as UTC |
 | Author | Contact display name (see `data-model.md` § display name derivation) |
 | Entry | Rendered text (Markdown + chips) + attachment icons |
 | Actions | Edit (pencil), delete (trashcan, soft-delete only) |
@@ -178,6 +178,69 @@ Below the entry-creation area, most-recent-first:
   they arrive — no special scroll-preservation/"N new entries" handling
   for v1. Deliberately deferred pending real UX experience, rather than
   designing for a problem that might not materialize.
+
+## Report export
+
+Three downloadable snapshots of the currently-selected event — CSV,
+plain Text, and standalone HTML — triggered from a small button row at
+the very bottom of the entries table, on the same row as "Show trashed
+entries," separated from it by a thin vertical divider: **CSV / HTML /
+TXT**. Entirely client-side — everything a report needs (entries,
+contacts, tags, event metadata) is already loaded into the app's stores
+by the time this row is visible, so generating and downloading a report
+never touches the network. See `data-model.md` § Report export for why
+these are explicitly *not* a synced/stored data type.
+
+### Content, common to all three formats
+
+A header block, then the entries themselves:
+
+| Field | Notes |
+|---|---|
+| Journal name, Event description | As currently known to this device |
+| Started | **Absolute** time (UTC or Local, whichever is currently selected) — never T-mode, same rule as the top bar's own Started readout (T-mode only ever applies to entry rows, see § Top bar above) |
+| End | The event's `closed_at` if closed, else literally **"Ongoing"** |
+| Duration | Start to `closed_at`, or to the moment of generation if still open — frozen at generation time, not a live value |
+| Completion % | Same computation as the top bar's completion ring |
+| Generated at | Absolute time (UTC or Local), same rule as Started/End |
+
+Entries: Time (full UTC/Local/T mode, mirroring the entries table
+exactly — including whichever entry is currently the T-zero reference
+in T-mode), Author, Entry text. **Trashed entries are always excluded**,
+regardless of whatever the on-screen "Show trashed entries" toggle
+happens to be set to at the moment — a report is a clean record, not a
+literal screen capture.
+
+### Per-format differences
+
+- **CSV**: metadata as `Field,Value` rows, one blank row, then an
+  `Time,Author,Entry` header followed by one row per entry. Standard
+  comma/quote/newline escaping.
+- **Text**: `Key: Value` metadata lines, a blank line, then each entry
+  as its own small block (time + author, entry text beneath, blank line
+  before the next entry).
+- **HTML**: a fully standalone, self-contained file — inline `<style>`,
+  no external requests of any kind, safe to open offline or email as an
+  attachment. Colors are **baked in from whichever theme (dark/light)
+  is active in the app at the moment of generation** — a fixed snapshot,
+  not a page that re-themes itself later based on the viewer's own
+  system preference. Tag/update tokens render as the same colored chips
+  the live app uses (via the current `tagsConfig`), mentions render as
+  styled chips too, and a tag's row-highlight behavior carries over the
+  same way it does on screen. Screen-oriented only for now — no
+  print-specific stylesheet (page-break handling etc.) in this round.
+
+CSV and Text both render `@mentions` down to clean plain text (`@Name`,
+markdown formatting marks stripped) rather than showing the raw
+`[@Name](contact:uuid)` link syntax verbatim. `tag:`/`update:` tokens
+need no such transformation — they're already bare, readable plain text
+in the stored source (e.g. `tag:critical`, `update:75`).
+
+### Filenames
+
+`{journal-name}-{event-description}-{YYYYMMDD-HHmm}.{ext}`, slugified
+(lowercase, spaces → hyphens, unsafe characters stripped) — e.g.
+`substation-7-feeder-outage-transformer-fault-20260802-1430.csv`.
 
 ## Public dashboard
 
