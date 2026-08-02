@@ -218,6 +218,13 @@ export function buildHtmlReport(data) {
   td.t { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 0.8rem; color: ${pal.inkDim}; white-space: nowrap; }
   td.a { font-weight: 600; font-size: 0.85rem; white-space: nowrap; }
   td.empty { text-align: center; color: ${pal.muted}; padding: 24px; }
+  /* Same fix as the live app's .entry-text (EntriesTable.svelte) — the
+     rendered entry HTML (marked, via render.js) wraps a plain paragraph
+     in <p>, a list in <ul>/<ol>, etc, all carrying the browser's own
+     default margin unless reset. Zero it, then add space back only
+     BETWEEN multiple blocks within one entry. */
+  td.e > * { margin: 0; }
+  td.e > * + * { margin-top: 0.6em; }
   .chip { display: inline-flex; align-items: center; font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 0.72rem; font-weight: 700; padding: 1px 7px; border-radius: 5px; margin: 0 2px; line-height: 1.6; }
   .chip-mention { background: ${pal.accent}22; color: ${pal.accent}; }
   .chip-update { background: #a9835f; color: #241a10; }
