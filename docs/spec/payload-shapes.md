@@ -100,7 +100,10 @@ Consistent across every endpoint:
   "secret_hash": {
     "algo": "sha256",
     "hash": "..."
-  }
+  },
+  "deleted": false,
+  "deleted_at": null,
+  "deleted_by": null
 }
 ```
 
@@ -110,6 +113,10 @@ Consistent across every endpoint:
 - `secret_hash.algo` lets the hashing scheme change later without
   breaking old records — exact algorithm TBD at implementation time, this
   documents the shape, not the final choice.
+- `deleted`/`deleted_at`/`deleted_by` — see `data-model.md` § Contact
+  deletion. A delete-edit sets `deleted: true` and `secret_hash: null`
+  (a real `null`, not the object shape above) while leaving `name`/
+  `short_name`/`email` as they were, for attribution on past entries.
 
 ### Event metadata — `metadata.{uuid}.json` (under `events/{event-uuid}/`)
 

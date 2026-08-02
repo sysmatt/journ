@@ -212,6 +212,38 @@ auth/onboarding mechanics. Data shape:
 | `short name` | e.g. "MattH"; optional; **not unique** — two contacts may pick the same one, accepted tradeoff |
 | `email` | Optional in principle, but contact creation requires at least a name or an email |
 | secret (hash only) | See `identity-and-security.md` — plaintext never stored/synced |
+| `deleted`, `deleted_at`, `deleted_by` | See § Contact deletion below |
+
+No privilege levels (see `identity-and-security.md`): any contact with
+valid credentials for the journal can write an edit to any *other*
+contact's record, not only their own — the UI doesn't restrict this
+either. In practice this covers both self-service ("I was bulk-invited
+by email only, let me fill in my own name") and an operator fixing up
+someone else's details.
+
+### Contact deletion
+
+A metadata flag, not a real removal — deliberately consistent with
+"nothing is ever discarded" elsewhere in this model. Deleting a contact
+writes an ordinary edit fragment (same LWW mechanism as any other
+contact edit) that:
+
+- sets `deleted: true`, `deleted_at`, `deleted_by`
+- clears `secret_hash` to `null`, which immediately invalidates their
+  secret for future auth (`journ_verify_secret` treats a null hash as
+  "no valid secret") — same mechanism `regenerate` already uses, just
+  toward null instead of a fresh hash
+- otherwise keeps every other field (`name`, `short_name`, `email`)
+  untouched, so past entries authored by this contact keep displaying
+  correct attribution rather than falling back to "Unknown"
+
+The UI shows a deleted contact's row struck through with a single
+**Reactivate** action in place of the usual edit/copy-link/send/
+regenerate/delete set. Reactivate reuses the exact same "issue a fresh
+secret" mechanism as regenerating an active contact's key — it just also
+clears `deleted`/`deleted_at`/`deleted_by` — so undo is exact: same
+write path, opposite direction, not a separate parallel feature to keep
+in sync.
 
 ### Display name derivation
 

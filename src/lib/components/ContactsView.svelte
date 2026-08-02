@@ -30,6 +30,12 @@
   let ownContactUuid = $state(null);
   let busyContact = $state(null);
 
+  let editingContact = $state(null); // contact_uuid | null
+  let editName = $state('');
+  let editShortName = $state('');
+  let editEmail = $state('');
+  let editBusy = $state(false);
+
   $effect(() => {
     getIdentity($currentJournalUuid).then((id) => {
       ownContactUuid = id?.contactUuid ?? null;
@@ -46,16 +52,99 @@
     return `${site}/invite?journal=${$currentJournalUuid}&contact=${contactUuid}&secret=${secret}`;
   }
 
+  /**
+   * Regenerate AND reactivate share one function: both are "issue a
+   * fresh secret," and reactivating a deleted contact is really just
+   * that plus clearing the deleted flag — see deleteContact() below,
+   * which sets secret_hash: null. Doing it this way means undo is exact:
+   * same mechanism, opposite direction, not a separate parallel path.
+   */
   async function regenerate(contactUuid) {
-    if (!confirm('Regenerate this key? Whatever device/link currently has the old one will be locked out immediately.')) return;
+    const reactivating = !!$contacts[contactUuid]?.deleted;
+    const prompt = reactivating
+      ? 'Reactivate this contact? They\'ll get a fresh key and be restored to active status.'
+      : 'Regenerate this key? Whatever device/link currently has the old one will be locked out immediately.';
+    if (!confirm(prompt)) return;
     busyContact = contactUuid;
     try {
       const identity = await getIdentity($currentJournalUuid);
       const existing = $contacts[contactUuid];
       const newSecret = generateSecret();
-      const fragment = { ...existing, updated_at: new Date().toISOString(), updated_by: identity.contactUuid, secret_hash: await hashSecret(newSecret) };
+      const fragment = {
+        ...existing,
+        updated_at: new Date().toISOString(),
+        updated_by: identity.contactUuid,
+        secret_hash: await hashSecret(newSecret),
+        deleted: false,
+        deleted_at: null,
+        deleted_by: null,
+      };
       await queueWrite(getEngine(), `contact.${crypto.randomUUID()}.json`, fragment);
       heldSecrets = { ...heldSecrets, [contactUuid]: newSecret };
+    } finally {
+      busyContact = null;
+    }
+  }
+
+  function openEdit(contactUuid) {
+    const c = $contacts[contactUuid];
+    editName = c?.name || '';
+    editShortName = c?.short_name || '';
+    editEmail = c?.email || '';
+    editingContact = contactUuid;
+  }
+
+  function closeEdit() {
+    editingContact = null;
+  }
+
+  async function saveEdit() {
+    editBusy = true;
+    try {
+      const identity = await getIdentity($currentJournalUuid);
+      const existing = $contacts[editingContact];
+      const fragment = {
+        ...existing,
+        updated_at: new Date().toISOString(),
+        updated_by: identity.contactUuid,
+        name: editName.trim() || null,
+        short_name: editShortName.trim() || null,
+        email: editEmail.trim() || null,
+      };
+      await queueWrite(getEngine(), `contact.${crypto.randomUUID()}.json`, fragment);
+      editingContact = null;
+    } finally {
+      editBusy = false;
+    }
+  }
+
+  /**
+   * Soft delete — a metadata flag, not a real removal (see
+   * docs/spec/data-model.md § Contact deletion): keeps the record (and
+   * therefore proper attribution on their past entries) but clears
+   * secret_hash so their old secret can no longer authenticate — same
+   * mechanism as regenerate() above, just to a null instead of a new
+   * hash. Reversible via the Reactivate button regenerate() becomes
+   * once deleted (see the row template) — an ordinary contact edit
+   * either way, so undo is exact, not a separate parallel path.
+   */
+  async function deleteContact(contactUuid) {
+    const name = deriveDisplayName($contacts[contactUuid]);
+    if (!confirm(`Delete ${name}? Their past entries stay attributed to them, but they'll immediately lose write access. This can be undone later via Reactivate. Continue?`)) return;
+    busyContact = contactUuid;
+    try {
+      const identity = await getIdentity($currentJournalUuid);
+      const existing = $contacts[contactUuid];
+      const fragment = {
+        ...existing,
+        updated_at: new Date().toISOString(),
+        updated_by: identity.contactUuid,
+        secret_hash: null,
+        deleted: true,
+        deleted_at: new Date().toISOString(),
+        deleted_by: identity.contactUuid,
+      };
+      await queueWrite(getEngine(), `contact.${crypto.randomUUID()}.json`, fragment);
     } finally {
       busyContact = null;
     }
@@ -106,20 +195,28 @@
 
   {#each Object.entries($contacts) as [uuid, c] (uuid)}
     {@const name = deriveDisplayName(c)}
-    <div class="contact-row">
+    <div class="contact-row" class:is-deleted={c.deleted}>
       <div class="who">
         <span class="avatar">{name.slice(0, 2).toUpperCase()}</span>
         <div>
-          <div class="name">{c.name || '— not set —'}{uuid === ownContactUuid ? ' (you)' : ''}</div>
+          <div class="name">{c.name || '— not set —'}{uuid === ownContactUuid ? ' (you)' : ''}{c.deleted ? ' (deleted)' : ''}</div>
           <div class="short">{c.short_name || '— not set —'}</div>
         </div>
       </div>
       <div></div>
       <div class="email">{c.email || '—'}</div>
       <div class="contact-actions">
-        <button class="icon-btn" title="Copy invite link" disabled={!heldSecrets[uuid]} onclick={() => copyLink(uuid)}>🔗</button>
-        <button class="icon-btn" title="Send invite email" disabled={!heldSecrets[uuid] || busyContact === uuid} onclick={() => sendInviteEmail(uuid)}>✉</button>
-        <button class="icon-btn" title="Regenerate key (locks out current holder)" disabled={busyContact === uuid} onclick={() => regenerate(uuid)}>⟳</button>
+        {#if c.deleted}
+          <button class="icon-btn" title="Reactivate contact (issues a fresh key)" disabled={busyContact === uuid} onclick={() => regenerate(uuid)}>⟲</button>
+        {:else}
+          <button class="icon-btn" title="Edit name / short name / email" disabled={busyContact === uuid} onclick={() => openEdit(uuid)}>✎</button>
+          <button class="icon-btn" title="Copy invite link" disabled={!heldSecrets[uuid]} onclick={() => copyLink(uuid)}>🔗</button>
+          <button class="icon-btn" title="Send invite email" disabled={!heldSecrets[uuid] || busyContact === uuid} onclick={() => sendInviteEmail(uuid)}>✉</button>
+          <button class="icon-btn" title="Regenerate key (locks out current holder)" disabled={busyContact === uuid} onclick={() => regenerate(uuid)}>⟳</button>
+          {#if uuid !== ownContactUuid}
+            <button class="icon-btn danger" title="Delete contact (keeps their past entries attributed to them)" disabled={busyContact === uuid} onclick={() => deleteContact(uuid)}>🗑</button>
+          {/if}
+        {/if}
       </div>
     </div>
   {/each}
@@ -139,6 +236,31 @@
   </div>
 </div>
 
+{#if editingContact}
+  <div class="modal-veil" onclick={(e) => { if (e.target === e.currentTarget) closeEdit(); }} role="presentation">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Edit contact">
+      <h3>Edit contact</h3>
+      <p class="sub">{editingContact === ownContactUuid ? 'Your own details' : ''}</p>
+      <div class="field">
+        <label for="cv-name">Name</label>
+        <input id="cv-name" type="text" bind:value={editName} />
+      </div>
+      <div class="field">
+        <label for="cv-short">Short name</label>
+        <input id="cv-short" type="text" bind:value={editShortName} placeholder="e.g. MattH" />
+      </div>
+      <div class="field">
+        <label for="cv-email">Email</label>
+        <input id="cv-email" type="email" bind:value={editEmail} />
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" onclick={closeEdit} disabled={editBusy}>Cancel</button>
+        <button type="button" class="primary-btn" onclick={saveEdit} disabled={editBusy}>{editBusy ? 'Saving…' : 'Save'}</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
   .panel h2 { margin: 0 0 3px; font-size: 1.05rem; }
@@ -153,6 +275,11 @@
   .contact-actions { display: flex; gap: 3px; }
   .contact-actions .icon-btn { width: 34px; height: 34px; font-size: 1.2rem; border-radius: 7px; }
   .contact-actions .icon-btn:disabled { opacity: 0.35; cursor: default; }
+  .contact-actions .icon-btn.danger:hover { background: var(--danger); color: var(--accent-ink); }
+
+  .contact-row.is-deleted .name,
+  .contact-row.is-deleted .short,
+  .contact-row.is-deleted .email { text-decoration: line-through; color: var(--muted); }
 
   .bulk-box { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 16px; }
   .bulk-box h3 { margin: 0 0 8px; font-size: 0.85rem; }
