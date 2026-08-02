@@ -147,3 +147,26 @@ export async function getPendingWrites(journalUuid) {
 export async function removePendingWrite(id) {
   return withStore('pendingWrites', 'readwrite', (store) => reqToPromise(store.delete(id)));
 }
+
+// ---- full local reset ("forget this device") ---------------------------
+
+/**
+ * Wipes every locally cached journal, identity, preference, and pending
+ * write on this device — nothing on the server is touched (the server
+ * has no concept of this). Closes the open connection first; an IDB
+ * database can't be deleted while something still holds it open, which
+ * would otherwise hang this on `onblocked` forever.
+ */
+export async function resetAllLocalData() {
+  if (dbPromise) {
+    const db = await dbPromise;
+    db.close();
+    dbPromise = null;
+  }
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(DB_NAME);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+    req.onblocked = () => resolve(); // proceeds once whatever's blocking it releases; caller reloads regardless
+  });
+}

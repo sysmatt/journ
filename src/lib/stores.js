@@ -105,6 +105,22 @@ export function getEngine() {
 }
 
 /**
+ * "Forget this device" — stops syncing and wipes every locally cached
+ * journal/identity/preference. Local-only; nothing server-side is
+ * touched. Callers should reload the page immediately after (App.svelte's
+ * onMount is what actually rebuilds all the in-memory state — there's no
+ * point resetting Svelte stores by hand here just to have onMount
+ * re-derive them from a now-empty IndexedDB a moment later).
+ */
+export async function resetLocalData() {
+  if (engine) {
+    engine.stop();
+    engine = null;
+  }
+  await db.resetAllLocalData();
+}
+
+/**
  * Reflects the current journal/event into the URL (replaceState — no
  * history-entry growth, so browser back/forward deliberately does NOT
  * step through events) so a reload or the PWA update-and-reload no

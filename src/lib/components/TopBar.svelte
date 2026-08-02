@@ -4,7 +4,7 @@
     knownJournals, currentJournalUuid, currentEventUuid,
     journalMeta, eventsSummary, eventMeta, entries,
     theme, timeMode, syncStatus,
-    setTheme, setTimeMode, selectJournal, selectEvent,
+    setTheme, setTimeMode, selectJournal, selectEvent, resetLocalData,
   } from '../stores.js';
   import { computeCompletionPercent } from '../render.js';
   import MetaModal from './MetaModal.svelte';
@@ -30,6 +30,18 @@
     const next = $theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     document.documentElement.setAttribute('data-theme', next);
+  }
+
+  async function handleResetLocalData() {
+    const ok = confirm(
+      'Erase all locally cached journals, identities, and preferences on THIS DEVICE ONLY?\n\n' +
+      'Nothing on the server is touched, but any secret this device uses to write to a journal ' +
+      '(including one you created) only lives here — you\'ll need a fresh invite or create-journal ' +
+      'link to get back in. This cannot be undone.'
+    );
+    if (!ok) return;
+    await resetLocalData();
+    location.href = '/'; // full reload — App.svelte's onMount rebuilds everything from the now-empty store
   }
 
   function fmtAbsolute(iso, useLocal) {
@@ -154,6 +166,7 @@
     <div class="sync-pill" data-state={$syncStatus}>
       <span class="sync-dot"></span> {$syncStatus === 'synced' ? 'Synced' : $syncStatus === 'syncing' ? 'Syncing' : 'Offline'}
     </div>
+    <button class="icon-btn reset-btn" onclick={handleResetLocalData} title="Reset this device — erase all locally cached journals, identities, and preferences (server data untouched)">🗑</button>
   </div>
 </div>
 
@@ -207,6 +220,11 @@
   .divider-v { width: 1px; align-self: stretch; background: var(--border); margin: 2px 4px; }
 
   .status-cluster { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  /* Deliberately subdued at rest (same as any other icon-btn) and only
+     signals "careful" on hover — this is a rare, destructive, local-only
+     action, not something that should visually compete with everyday
+     controls like the sync pill or theme toggle right next to it. */
+  .reset-btn:hover { background: var(--danger); color: var(--accent-ink); }
 
   .stat { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
   .stat .eyebrow { line-height: 1; }
