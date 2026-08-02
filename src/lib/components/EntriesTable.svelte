@@ -217,7 +217,7 @@
   .attach-tag a { color: inherit; text-decoration: none; }
 
   .row-actions { display: flex; gap: 2px; justify-content: flex-end; }
-  .row-actions .icon-btn { width: 34px; height: 34px; font-size: 1.2rem; border-radius: 7px; }
+  .row-actions .icon-btn { width: 26px; height: 26px; font-size: 1rem; border-radius: 6px; }
 
   .empty { padding: 24px; text-align: center; color: var(--muted); font-size: 0.85rem; }
 
