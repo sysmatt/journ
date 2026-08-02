@@ -49,12 +49,17 @@ export function getTags(baseUrl) {
 
 // ---- bootstrap -----------------------------------------------------------
 
-export function createJournal(baseUrl, bootstrapSecret, body) {
-  return request(baseUrl, '/journal', {
-    method: 'POST',
-    headers: { 'X-Journ-Bootstrap-Secret': bootstrapSecret },
-    body,
-  });
+/**
+ * @param {{bootstrapSecret: string} | {journalUuid: string, contactUuid: string, secret: string}} auth
+ *   Either the install-wide bootstrap secret, or proof of already being a
+ *   valid contact of some other journal — see
+ *   journ_require_bootstrap_or_contact_secret() server-side.
+ */
+export function createJournal(baseUrl, auth, body) {
+  const headers = 'bootstrapSecret' in auth
+    ? { 'X-Journ-Bootstrap-Secret': auth.bootstrapSecret }
+    : { 'X-Journ-Journal': auth.journalUuid, ...contactHeaders(auth.contactUuid, auth.secret) };
+  return request(baseUrl, '/journal', { method: 'POST', headers, body });
 }
 
 // ---- sync: list / get / put / freshness -----------------------------------

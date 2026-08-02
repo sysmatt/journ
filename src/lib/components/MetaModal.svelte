@@ -3,7 +3,8 @@
   // docs/spec/ui-ux.md § Top bar: "reuses the same modal/form as new,
   // pre-filled with current values, submitting as an update rather than
   // a create."
-  import { createJournal, saveJournalName, saveEventMeta, rememberBootstrapSecret } from '../stores.js';
+  import { createJournal, saveJournalName, saveEventMeta, rememberBootstrapSecret, currentJournalUuid } from '../stores.js';
+  import { getIdentity } from '../db.js';
 
   let { mode, journalMeta = null, eventMeta = null, baseUrl, prefillBootstrapSecret = '', onClose } = $props();
 
@@ -60,6 +61,21 @@
   let busy = $state(false);
   let error = $state('');
 
+  // Creating a journal no longer strictly needs the bootstrap secret —
+  // stores.js's createJournal() prefers proving membership via whatever
+  // identity this device already has for $currentJournalUuid (see
+  // docs/spec/identity-and-security.md § Bootstrap). When that's
+  // available, skip asking for a secret at all rather than showing a
+  // field that won't even be used.
+  let hasOwnIdentity = $state(false);
+  $effect(() => {
+    if (mode !== 'new-journal' || !$currentJournalUuid) {
+      hasOwnIdentity = false;
+      return;
+    }
+    getIdentity($currentJournalUuid).then((id) => { hasOwnIdentity = !!id; });
+  });
+
   async function submit() {
     busy = true;
     error = '';
@@ -71,7 +87,14 @@
           short_name: creatorShortName.trim() || null,
           email: creatorEmail.trim() || null,
         });
-        await rememberBootstrapSecret(bootstrapSecret); // worked — remember it so next time doesn't need the link/re-typing
+        // Only worth remembering if we actually asked for/used one — a
+        // hasOwnIdentity create never touches bootstrapSecret server-side
+        // (stores.js's createJournal() picked contact-based auth
+        // instead), so saving an empty string here would blow away a
+        // real secret this device already remembered from before.
+        if (bootstrapSecret) {
+          await rememberBootstrapSecret(bootstrapSecret);
+        }
       } else if (mode === 'edit-journal') {
         await saveJournalName(name.trim());
       } else {
@@ -105,10 +128,14 @@
     {/if}
 
     {#if mode === 'new-journal'}
-      <div class="field">
-        <label for="mm-bootstrap">Create-journal secret</label>
-        <input id="mm-bootstrap" type="text" bind:value={bootstrapSecret} placeholder="from your create-journal link" />
-      </div>
+      {#if hasOwnIdentity}
+        <p class="sub">You're already a journal member on this device — no separate secret needed to create another.</p>
+      {:else}
+        <div class="field">
+          <label for="mm-bootstrap">Create-journal secret</label>
+          <input id="mm-bootstrap" type="text" bind:value={bootstrapSecret} placeholder="from your create-journal link" />
+        </div>
+      {/if}
       <div class="field">
         <label for="mm-creator-name">Your name</label>
         <input id="mm-creator-name" type="text" bind:value={creatorName} />

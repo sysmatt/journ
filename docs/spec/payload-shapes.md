@@ -37,6 +37,21 @@ X-Journ-Bootstrap-Secret: {secret}   # journal creation only
 X-Journ-Recovery-Secret:  {secret}   # break-glass recovery only
 ```
 
+`POST /journal` accepts a second form of auth instead of the bootstrap
+secret: proof of already being a valid contact of some *other* journal.
+`X-Journ-Journal` names which journal to check membership against; the
+usual `X-Journ-Contact`/`X-Journ-Secret` pair prove it, exactly as on any
+other contact-authenticated endpoint:
+
+```
+X-Journ-Journal:  {uuid of a journal this device is already a contact of}
+X-Journ-Contact:  {contact-uuid}
+X-Journ-Secret:   {plaintext secret}
+```
+
+Either form alone is sufficient — see `identity-and-security.md` §
+Bootstrap for why both are accepted.
+
 Reads are never gated — no auth header required on any `GET`.
 
 ## Error shape
@@ -258,7 +273,7 @@ in the given order, never re-sort it:
 
 ### `POST /journal` — bootstrap create
 
-Auth: `X-Journ-Bootstrap-Secret`. Two request shapes depending on mode:
+Auth: `X-Journ-Bootstrap-Secret` OR `X-Journ-Journal`+`X-Journ-Contact`+`X-Journ-Secret` — see § Auth headers above. Two request shapes depending on mode:
 
 **Fresh journal:**
 ```json

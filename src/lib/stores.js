@@ -291,15 +291,32 @@ export async function saveEventMeta({ description, startAt, closed, isNew }) {
   return eventUuid;
 }
 
+async function _resolveCreateJournalAuth(bootstrapSecret) {
+  const existingJournalUuid = get(currentJournalUuid);
+  if (existingJournalUuid) {
+    const identity = await db.getIdentity(existingJournalUuid);
+    if (identity) {
+      return { journalUuid: existingJournalUuid, contactUuid: identity.contactUuid, secret: identity.secret };
+    }
+  }
+  return { bootstrapSecret };
+}
+
 /**
- * Journal creation — gated by the bootstrap secret, normally arriving
- * embedded in a "create new journal" link (see
- * docs/spec/identity-and-security.md § Bootstrap), pre-filled by
- * App.svelte from the URL on load. Manual entry is also accepted as a
- * fallback (e.g. for local testing without going through a real link).
+ * Journal creation — gated by EITHER the bootstrap secret (normally
+ * arriving embedded in a "create new journal" link, pre-filled by
+ * App.svelte from the URL on load; manual entry also accepted, e.g. for
+ * local testing) OR simply already being a valid contact of whatever
+ * journal is currently selected on this device — see
+ * docs/spec/identity-and-security.md § Bootstrap. The latter is
+ * preferred whenever available, since it needs no separate secret at
+ * all: anyone already onboarded anywhere can start another journal.
+ * `bootstrapSecret` is only actually used as a fallback when this device
+ * has no current journal/identity to prove membership with.
  */
 export async function createJournal(baseUrl, bootstrapSecret, name, creator) {
-  const resp = await api.createJournal(baseUrl, bootstrapSecret, { mode: 'create', name, creator });
+  const auth = await _resolveCreateJournalAuth(bootstrapSecret);
+  const resp = await api.createJournal(baseUrl, auth, { mode: 'create', name, creator });
   const journalUuid = resp.journal;
   const me = resp.contacts[0];
   await db.saveIdentity(journalUuid, me.contact, me.secret);

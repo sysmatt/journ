@@ -46,6 +46,40 @@ function journ_require_bootstrap_secret(): void
     }
 }
 
+/**
+ * 401s unless EITHER the bootstrap secret is supplied, OR the caller
+ * proves they're a currently-valid contact of SOME existing journal —
+ * X-Journ-Journal names which one, X-Journ-Contact/X-Journ-Secret prove
+ * membership in it exactly like journ_require_contact_secret() does.
+ * Deliberate widening of who can mint new journals: any already-onboarded
+ * contact of any journal on this install can now start another one, not
+ * only whoever holds the install-wide bootstrap secret — see
+ * docs/spec/identity-and-security.md § Bootstrap.
+ */
+function journ_require_bootstrap_or_contact_secret(): void
+{
+    $bootstrapSecret = journ_config()['bootstrap_secret'];
+    $givenBootstrap = journ_header('X-Journ-Bootstrap-Secret');
+    if ($bootstrapSecret !== null && $givenBootstrap !== null && hash_equals((string) $bootstrapSecret, $givenBootstrap)) {
+        return;
+    }
+
+    $provingJournal = journ_header('X-Journ-Journal');
+    $contactUuid = journ_header('X-Journ-Contact');
+    $secret = journ_header('X-Journ-Secret');
+    if ($provingJournal !== null && journ_is_valid_uuid($provingJournal) && $contactUuid !== null && $secret !== null) {
+        $contact = journ_reduce_contact($provingJournal, $contactUuid);
+        // secret_hash is null on a deleted contact (see ContactsView.svelte's
+        // deleteContact()), so journ_verify_secret() already rejects them —
+        // no separate deleted-check needed here.
+        if ($contact !== null && journ_verify_secret($secret, $contact['secret_hash'] ?? null)) {
+            return;
+        }
+    }
+
+    journ_error('unauthorized', 'Missing or invalid bootstrap secret or contact credentials.');
+}
+
 /** 401s unless X-Journ-Recovery-Secret matches config. */
 function journ_require_recovery_secret(): void
 {

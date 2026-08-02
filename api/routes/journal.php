@@ -8,10 +8,10 @@ require_once __DIR__ . '/../lib/auth.php';
 require_once __DIR__ . '/../lib/fragments.php';
 require_once __DIR__ . '/../lib/response.php';
 
-/** POST /journal — one atomic call, gated by the bootstrap secret. See docs/spec/identity-and-security.md § Bootstrap. */
+/** POST /journal — one atomic call, gated by the bootstrap secret OR proof of being a contact of some other existing journal. See docs/spec/identity-and-security.md § Bootstrap. */
 function journ_route_create_journal(): void
 {
-    journ_require_bootstrap_secret();
+    journ_require_bootstrap_or_contact_secret();
     $body = journ_request_json();
     $mode = $body['mode'] ?? 'create';
     $name = trim((string) ($body['name'] ?? ''));

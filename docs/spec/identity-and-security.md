@@ -128,6 +128,26 @@ This mechanism is accepted as good-for-now, not necessarily final — a
 candidate for a better approach later if one presents itself, but not
 blocking.
 
+**Alternate auth: proof of existing contact status.** `POST /journal`
+also accepts proof of already being a valid contact of some *other*
+journal in place of the bootstrap secret — see `payload-shapes.md` §
+Auth headers. This is a deliberate widening of who can mint new
+journals: from "whoever holds the shared bootstrap secret" to "anyone
+already onboarded anywhere on this install." The client prefers this
+path automatically whenever this device already has an identity for its
+currently-selected journal, so most users never need the bootstrap
+secret at all after their first onboarding — it only remains as the
+fallback for a device with no journal/identity yet.
+
+This does mean the bootstrap secret's blast radius is no longer as
+narrow as "one atomic call, then dead" once contacts exist — any contact
+of any journal is transitively equivalent to a bootstrap-secret holder
+for the specific purpose of creating new journals. Accepted tradeoff for
+this install's use case (any onboarded responder should be able to
+start a new incident journal themselves); revisit if a deployment ever
+wants journal-creation kept to a narrower group than "everyone with
+access to anything."
+
 ## Break-glass recovery
 
 Closes a real gap: if a journal's contacts are all locked out (most
