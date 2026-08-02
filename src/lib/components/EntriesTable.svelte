@@ -191,7 +191,7 @@
   .entry-row.is-trashed .entry-text { text-decoration: line-through; text-decoration-color: var(--muted); }
 
   .ts { display: flex; align-items: center; gap: 7px; }
-  .ts-stack { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-dim); white-space: nowrap; display: flex; flex-direction: column; gap: 1px; }
+  .ts-stack { font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-dim); white-space: nowrap; display: flex; flex-direction: row; align-items: baseline; gap: 6px; }
   .ts-stack .date { font-size: 0.66rem; color: var(--muted); }
   .t-radio { width: 14px; height: 14px; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
 
