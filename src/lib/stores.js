@@ -261,7 +261,7 @@ export async function trashEntry(entryUuid, trashed = true) {
  * its own `mode` prop — trust that, don't re-derive it from state that
  * can be stale.
  */
-export async function saveEventMeta({ description, startAt, closed, isNew }) {
+export async function saveEventMeta({ description, startAt, closed, publicSecret, isNew }) {
   const journalUuid = get(currentJournalUuid);
   const eventUuid = isNew ? crypto.randomUUID() : get(currentEventUuid);
   const identity = get(_identityCache);
@@ -279,6 +279,11 @@ export async function saveEventMeta({ description, startAt, closed, isNew }) {
     closed: closed ?? existing?.closed ?? false,
     closed_at: (closed ?? existing?.closed) ? (existing?.closed_at ?? nowIso()) : null,
     closed_by: (closed ?? existing?.closed) ? identity.contactUuid : null,
+    // undefined (param omitted) preserves whatever's already there; a
+    // real value enables/regenerates; explicit null disables — `??`
+    // alone can't tell "omitted" from "explicitly clearing," hence the
+    // undefined check rather than `publicSecret ?? existing?.public_secret`.
+    public_secret: publicSecret !== undefined ? publicSecret : (existing?.public_secret ?? null),
   };
 
   await queueWrite(engine, `events/${eventUuid}/metadata.${crypto.randomUUID()}.json`, fragment);

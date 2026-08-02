@@ -47,6 +47,20 @@ export function getTags(baseUrl) {
   return request(baseUrl, '/tags');
 }
 
+/** Public, read-only, secret-gated — see docs/spec/payload-shapes.md § GET .../dashboard. Not part of the ordinary contact-auth model, so its own header rather than reusing contactHeaders(). */
+export function getDashboard(baseUrl, journalUuid, eventUuid, secret) {
+  return request(baseUrl, `/journal/${journalUuid}/events/${eventUuid}/dashboard`, {
+    headers: { 'X-Journ-Dashboard-Secret': secret },
+  });
+}
+
+/** Cheap poll target — just a timestamp, same secret. See PublicDashboard.svelte, which checks this before ever calling getDashboard(). */
+export function getDashboardFreshness(baseUrl, journalUuid, eventUuid, secret) {
+  return request(baseUrl, `/journal/${journalUuid}/events/${eventUuid}/dashboard/freshness`, {
+    headers: { 'X-Journ-Dashboard-Secret': secret },
+  });
+}
+
 // ---- bootstrap -----------------------------------------------------------
 
 /**

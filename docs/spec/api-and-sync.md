@@ -48,6 +48,8 @@ about here so it isn't repeated.
 | Archive event (privileged) | Physically moves an entire event's fragments into attic storage. Not achievable via the ordinary add-only write path — real server-side logic, same category as compaction. One-way, no restore endpoint. |
 | Attachment upload/download | Separate from the JSON fragment path entirely — own endpoints, UUID-keyed. Subject to size/type limits (see `operations.md` for config). |
 | `GET /tags` | Install-wide, not journal-scoped. Exposes the server's `[tag:*]` color/behavior config so the client can render tag chips — added once frontend work surfaced that the client otherwise has no way to reach `journ-config.ini`, which deliberately lives outside the docroot. See `payload-shapes.md`. |
+| `GET /journal/{uuid}/events/{uuid}/dashboard` | The one exception to "reads are never gated" — a purpose-built read-only endpoint for public event sharing, actually checking `X-Journ-Dashboard-Secret` server-side so revocation is real. Not part of the ordinary fragment sync path at all. See `identity-and-security.md` § Public dashboard secret and `payload-shapes.md`. |
+| `GET /journal/{uuid}/events/{uuid}/dashboard/freshness` | Same secret gate, but a cheap stat()-only timestamp check — what the public dashboard actually polls every few seconds, only falling through to the full endpoint above when it's changed. |
 
 ### Listing/discovery mechanism (server-side)
 

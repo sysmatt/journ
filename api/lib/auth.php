@@ -112,3 +112,29 @@ function journ_require_contact_secret(string $journalUuid): array
 
     return $contact;
 }
+
+/**
+ * 404s (deliberately not 401 — see docs/spec/payload-shapes.md § GET
+ * .../dashboard) unless X-Journ-Dashboard-Secret matches this event's
+ * current public_secret. Plain hash_equals() against a plaintext value,
+ * NOT journ_verify_secret() — public_secret is stored raw, not hashed
+ * (see docs/spec/identity-and-security.md § Public dashboard secret for
+ * why that's the right call specifically for this one). Returns the
+ * reduced event metadata on success, so the route doesn't have to
+ * re-reduce it.
+ */
+function journ_require_dashboard_secret(string $journalUuid, string $eventUuid): array
+{
+    $event = journ_reduce_event_metadata($journalUuid, $eventUuid);
+    $publicSecret = $event['public_secret'] ?? null;
+    if ($event === null || $publicSecret === null || $publicSecret === '') {
+        journ_error('not_found', 'Dashboard not found.');
+    }
+
+    $given = journ_header('X-Journ-Dashboard-Secret');
+    if ($given === null || !hash_equals((string) $publicSecret, $given)) {
+        journ_error('not_found', 'Dashboard not found.');
+    }
+
+    return $event;
+}

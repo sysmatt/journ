@@ -148,6 +148,63 @@ start a new incident journal themselves); revisit if a deployment ever
 wants journal-creation kept to a narrower group than "everyone with
 access to anything."
 
+## Public dashboard secret (per-event, read-only sharing)
+
+A per-**event** secret, opt-in, that grants read-only access to that one
+event's metadata + entries to anyone holding the link — no contact
+identity, no journal membership, no write access of any kind.
+
+**Why this needs its own enforcement, unlike everything else.** Every
+other read in this system is deliberately ungated (`payload-shapes.md` §
+Auth headers: "reads are never gated") — journal/event UUIDs are the
+only access control, and that's fine because UUIDs are 122 bits of
+unguessable entropy only ever handed to legitimate contacts. A public
+dashboard breaks that assumption on purpose: the whole point is handing
+a link to people who are *not* contacts, with the ability to later
+**revoke** it. If the dashboard link just carried the real journal/event
+UUIDs, revocation would be theater — the old link's UUIDs would still
+work forever against the ordinary list/get endpoints. So the dashboard
+is served by its own pair of endpoints (`GET
+/journal/{uuid}/events/{uuid}/dashboard` and its cheap `.../freshness`
+sibling — see `payload-shapes.md`) that actually check the secret
+server-side via `X-Journ-Dashboard-Secret`, completely separate from the
+normal always-open sync API. Regenerating the secret means the old
+value simply stops matching — genuine revocation, not obscurity.
+
+**Storage: plaintext, not hashed — deliberately different from contact
+secrets.** It lives as `public_secret` on the event metadata fragment
+(`data-model.md` § Event), alongside `description`/`start_at`/etc, an
+ordinary field in an ordinary LWW-reduced write — no bespoke server
+endpoint needed to set/clear/regenerate it, `saveEventMeta()` handles it
+exactly like any other field. Contact secrets are hash-only specifically
+to protect *other people's write-capable identities* from a compromised
+store; that threat doesn't apply here — every contact of the journal
+already gets this event's full metadata (public_secret included)
+synced to their device regardless, since they already have complete
+read+write access to it anyway. The secret only meaningfully gates
+*non*-contacts, and it's never sent to anyone who isn't already either
+a contact or already holds the dashboard link.
+
+**Lifecycle**, driven entirely from the event's edit UI (`ui-ux.md` §
+Public dashboard):
+- Enabling generates a fresh secret and sets it.
+- Regenerating replaces it — old links stop working immediately, same
+  "this locks out the current holder" warning pattern as contact-key
+  regeneration.
+- Disabling clears it to `null` — the dashboard 404s for everyone until
+  re-enabled, which mints an unrelated new secret (an old, disabled link
+  never comes back to life).
+
+**What's deliberately excluded from the dashboard response** — see
+`payload-shapes.md` for the exact shape:
+- Contact emails — only `name`/`short_name` are exposed, needed purely
+  to resolve `@mention` chip labels and entry authorship.
+- Attachment references — stripped from entries entirely server-side,
+  not merely unlinked client-side.
+- The Composer, journal/event pickers, and Contacts view have no
+  presence on this page at all; it's a distinct, minimal client route
+  (`ui-ux.md`), not a restricted mode of the main app shell.
+
 ## Break-glass recovery
 
 Closes a real gap: if a journal's contacts are all locked out (most

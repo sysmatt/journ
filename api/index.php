@@ -31,6 +31,7 @@ require_once __DIR__ . '/routes/attachments.php';
 require_once __DIR__ . '/routes/contacts.php';
 require_once __DIR__ . '/routes/recovery.php';
 require_once __DIR__ . '/routes/tags.php';
+require_once __DIR__ . '/routes/dashboard.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
@@ -52,6 +53,8 @@ $routes = [
     ['GET',  sprintf('#^/journal/(%s)/list$#', $u), 'journ_route_list_journal'],
 
     ['GET',  sprintf('#^/journal/(%s)/events/(%s)/list$#', $u, $u), 'journ_route_list_event'],
+    ['GET',  sprintf('#^/journal/(%s)/events/(%s)/dashboard/freshness$#', $u, $u), 'journ_route_get_dashboard_freshness'],
+    ['GET',  sprintf('#^/journal/(%s)/events/(%s)/dashboard$#', $u, $u), 'journ_route_get_dashboard'],
     ['POST', sprintf('#^/journal/(%s)/events/(%s)/archive$#', $u, $u), 'journ_route_archive_event'],
     ['POST', sprintf('#^/journal/(%s)/events/(%s)/attachments$#', $u, $u), 'journ_route_upload_attachment'],
     ['GET',  sprintf('#^/journal/(%s)/events/(%s)/attachments/([^/]+)$#', $u, $u), 'journ_route_download_attachment'],

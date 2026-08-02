@@ -5,6 +5,7 @@
   // a create."
   import { createJournal, saveJournalName, saveEventMeta, rememberBootstrapSecret, currentJournalUuid } from '../stores.js';
   import { getIdentity } from '../db.js';
+  import { generateSecret } from '../secrets.js';
 
   let { mode, journalMeta = null, eventMeta = null, baseUrl, prefillBootstrapSecret = '', onClose } = $props();
 
@@ -60,6 +61,58 @@
   let bootstrapSecret = $state(prefillBootstrapSecret);
   let busy = $state(false);
   let error = $state('');
+
+  // Public dashboard (see docs/spec/ui-ux.md § Public dashboard):
+  // enabling/disabling/regenerating are immediate, standalone writes —
+  // NOT deferred to this form's own Save button — same mental model as
+  // a contact's regenerate-key action in ContactsView.svelte. `closed`/
+  // `description`/`startAt` above stay deferred to Save as before; this
+  // is independent of that.
+  let publicSecret = $state(mode === 'edit-event' ? (eventMeta?.public_secret || null) : null);
+  let publicBusy = $state(false);
+
+  function dashboardUrl(secret) {
+    const site = journalMeta?.storage?.base_url || location.origin;
+    return `${site}/dashboard?journal=${$currentJournalUuid ?? ''}&event=${eventMeta?.event ?? ''}&secret=${secret}`;
+  }
+
+  async function togglePublic(checked) {
+    publicBusy = true;
+    error = '';
+    try {
+      if (checked) {
+        const secret = generateSecret();
+        await saveEventMeta({ publicSecret: secret, isNew: false });
+        publicSecret = secret;
+      } else {
+        await saveEventMeta({ publicSecret: null, isNew: false });
+        publicSecret = null;
+      }
+    } catch (e) {
+      error = e.message || 'Something went wrong.';
+    } finally {
+      publicBusy = false;
+    }
+  }
+
+  async function regeneratePublicSecret() {
+    if (!confirm('Regenerate the public dashboard link? Anyone currently using the old link loses access immediately. Continue?')) return;
+    publicBusy = true;
+    error = '';
+    try {
+      const secret = generateSecret();
+      await saveEventMeta({ publicSecret: secret, isNew: false });
+      publicSecret = secret;
+    } catch (e) {
+      error = e.message || 'Something went wrong.';
+    } finally {
+      publicBusy = false;
+    }
+  }
+
+  async function copyDashboardLink() {
+    await navigator.clipboard.writeText(dashboardUrl(publicSecret));
+  }
 
   // Creating a journal no longer strictly needs the bootstrap secret —
   // stores.js's createJournal() prefers proving membership via whatever
@@ -180,6 +233,29 @@
             Closed
           </label>
         </div>
+
+        <div class="field">
+          <label class="checkline">
+            <input
+              type="checkbox"
+              checked={!!publicSecret}
+              disabled={publicBusy}
+              onchange={(e) => togglePublic(e.target.checked)}
+            />
+            Make public dashboard link
+          </label>
+        </div>
+        {#if publicSecret}
+          <div class="field">
+            <label for="mm-public-url">Public dashboard link</label>
+            <div class="link-row">
+              <input id="mm-public-url" type="text" readonly value={dashboardUrl(publicSecret)} />
+              <button type="button" class="ghost-btn" onclick={copyDashboardLink}>Copy</button>
+            </div>
+            <button type="button" class="ghost-btn" disabled={publicBusy} onclick={regeneratePublicSecret}>Regenerate</button>
+            <p class="sub">Regenerating immediately revokes access for anyone with the current link.</p>
+          </div>
+        {/if}
       {/if}
     {/if}
 
@@ -188,8 +264,8 @@
     {/if}
 
     <div class="modal-actions">
-      <button type="button" class="ghost-btn" onclick={onClose} disabled={busy}>Cancel</button>
-      <button type="button" class="primary-btn" onclick={submit} disabled={busy}>
+      <button type="button" class="ghost-btn" onclick={onClose} disabled={busy || publicBusy}>Cancel</button>
+      <button type="button" class="primary-btn" onclick={submit} disabled={busy || publicBusy}>
         {busy ? 'Saving…' : (mode.startsWith('new') ? 'Create' : 'Save')}
       </button>
     </div>
@@ -213,4 +289,18 @@
   }
   .start-row .colon { color: var(--ink-dim); font-weight: 700; }
   .start-row .ghost-btn { padding: 8px 12px; flex-shrink: 0; }
+
+  .link-row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .link-row input {
+    flex: 1;
+    min-width: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 8px 10px;
+    color: var(--ink-dim);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+  }
+  .link-row .ghost-btn { flex-shrink: 0; padding: 8px 12px; }
 </style>

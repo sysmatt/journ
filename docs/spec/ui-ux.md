@@ -179,6 +179,74 @@ Below the entry-creation area, most-recent-first:
   for v1. Deliberately deferred pending real UX experience, rather than
   designing for a problem that might not materialize.
 
+## Public dashboard
+
+Read-only, no-login sharing of a single event — see `data-model.md` §
+Public dashboard and `identity-and-security.md` § Public dashboard
+secret for the data/security model this UI drives.
+
+### Enabling, from the edit-event modal
+
+A **"Make public dashboard link"** checkbox, alongside the rest of that
+modal's fields:
+
+- **Unchecked → checked**: generates a fresh secret, saves it as part of
+  the same metadata write as everything else in that form (no separate
+  save step). The dashboard URL now appears directly in the modal (a
+  copyable field) alongside a **Regenerate** button.
+- **Regenerate**: same warning pattern as a contact's regenerate-key
+  icon — "this will revoke access for anyone with the current link" —
+  confirm, then replace the secret. The old link stops working
+  immediately.
+- **Checked → unchecked**: clears the secret. The dashboard 404s for
+  everyone with the old link until re-enabled, which mints an unrelated
+  new one — unchecking then rechecking does NOT restore the previous
+  link.
+
+### Visibility from the entries table
+
+Whenever the currently-selected event has public sharing enabled, the
+very bottom of the entries table (below the trashed-entries toggle in §
+Global operations) shows a line: *"This event is being shared publicly
+with this URL: {url}"* with a copy button. Absent entirely when not
+enabled — this is purely so contacts already looking at the event can
+find/re-grab the link without opening the edit modal, not a separate
+control surface.
+
+### The dashboard page itself
+
+A **distinct client route** (`/dashboard?journal=...&event=...&secret=...`,
+same query-param convention as invite links), not a restricted mode of
+the main app shell — there is no journal/event picker, no composer, no
+Contacts view, and no sync-status pill (it isn't using the
+offline-queue sync engine at all, just a periodic poll of the dashboard
+endpoint). What it does show:
+
+- Journal name + event description, and the same Started/Running/
+  Completion instrument-readout block as the top bar (`EventStats`,
+  factored out of the top bar specifically so both share it verbatim).
+- The entries table, read-only: no edit pencil, no trash icon, no
+  composer above it. Time-mode (UTC/Local/T) and theme toggles still
+  work — pure display preferences, no reason to disable them for an
+  anonymous viewer.
+- **Polls every 5s**, but cheaply: each tick checks a lightweight,
+  secret-gated freshness endpoint (`GET .../dashboard/freshness`, a
+  stat()-only scan, no JSON decode — see
+  `identity-and-security.md` § Public dashboard secret) and only pays
+  for the full reduce-and-fetch when that timestamp has actually
+  changed since the last tick. This is deliberately *not* the
+  authenticated app's incremental fragment-sync-then-client-reduce
+  mechanism — no IndexedDB, no fragment diffing, the full endpoint
+  always returns a complete server-side-reduced snapshot when it runs
+  at all. The freshness check is what makes polling that often cheap
+  rather than the mechanism being lightweight in general.
+- Tags are fetched once at load, not on every tick — install-wide
+  config, not event data; nothing meaningfully changes mid-session.
+- If a poll ever comes back "not found" (secret regenerated, dashboard
+  disabled, or the event got archived), stop polling and show a plain
+  "this link no longer works" message rather than failing silently or
+  retrying forever.
+
 ## Global operations
 
 Live at the very bottom of the page:

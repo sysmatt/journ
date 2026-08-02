@@ -175,15 +175,14 @@ function journ_write_fragment(string $dir, string $filename, string $rawJsonBody
 }
 
 /**
- * Timestamp of the most recent write anywhere under a journal — powers
- * the freshness/reachability check (docs/spec/api-and-sync.md § Sync
- * trigger mechanism). Filesystem mtimes, scanned recursively, excluding
- * attic/ (invisible to clients) and attachments/ (not part of the JSON
- * sync path, uploads shouldn't register as "new data to sync").
+ * Timestamp of the most recent .json write anywhere under $root — the
+ * shared scan behind both journ_freshness() and journ_event_freshness()
+ * below. Filesystem mtimes, scanned recursively, excluding attic/
+ * (invisible to clients) and attachments/ (not part of the JSON sync
+ * path, uploads shouldn't register as "new data to sync").
  */
-function journ_freshness(string $journalUuid): ?string
+function journ_dir_freshness(string $root): ?string
 {
-    $root = journ_journal_dir($journalUuid);
     if (!is_dir($root)) {
         return null;
     }
@@ -206,4 +205,22 @@ function journ_freshness(string $journalUuid): ?string
     }
 
     return $latest > 0 ? gmdate('Y-m-d\TH:i:s\Z', $latest) : null;
+}
+
+/** Powers the authenticated app's sync trigger (docs/spec/api-and-sync.md § Sync trigger mechanism) — the whole journal's freshness. */
+function journ_freshness(string $journalUuid): ?string
+{
+    return journ_dir_freshness(journ_journal_dir($journalUuid));
+}
+
+/**
+ * Same idea, scoped to one event — powers the public dashboard's own
+ * lightweight poll (docs/spec/ui-ux.md § Public dashboard): cheap
+ * stat()-only scan, no JSON decode, so polling this frequently to
+ * decide whether the expensive full reduce is even worth doing is
+ * itself near-free.
+ */
+function journ_event_freshness(string $journalUuid, string $eventUuid): ?string
+{
+    return journ_dir_freshness(journ_event_dir($journalUuid, $eventUuid));
 }

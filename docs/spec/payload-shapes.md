@@ -147,7 +147,8 @@ Consistent across every endpoint:
   "description": "Transformer fault on Feeder 12, T-2 thermal event.",
   "closed": false,
   "closed_at": null,
-  "closed_by": null
+  "closed_by": null,
+  "public_secret": null
 }
 ```
 
@@ -156,6 +157,10 @@ Consistent across every endpoint:
 - The open/closed transition is also separately recorded as an entry
   (see `data-model.md` § Event lifecycle) — `closed`/`closed_at` here is
   for fast/direct reads without scanning entries.
+- `public_secret` — `null` by default; a real value opts the event into
+  the public dashboard. Plaintext, not hashed — see
+  `identity-and-security.md` § Public dashboard secret for why that's
+  the right call here specifically (unlike contact `secret_hash`).
 
 ### Entries — `entry.{first-entry-uuid}.json` (under `events/{event-uuid}/`)
 
@@ -315,6 +320,74 @@ transmitted:
   ]
 }
 ```
+
+### `GET /journal/{uuid}/events/{event_uuid}/dashboard/freshness`
+
+Auth: same `X-Journ-Dashboard-Secret`. What `PublicDashboard.svelte`
+actually polls every 5s — `journ_event_freshness()` is a stat()-only
+scan of that event's own directory (no JSON decode, nowhere near as
+much work as the full endpoint below), so checking this often is cheap.
+Same error behavior as the full endpoint on a bad/missing secret.
+
+```json
+{ "updated_at": "2026-07-31T14:05:00Z" }
+```
+
+The client only calls the full `dashboard` endpoint below when this
+value has changed since its last check — see `identity-and-security.md`
+§ Public dashboard secret and `ui-ux.md` § Public dashboard.
+
+### `GET /journal/{uuid}/events/{event_uuid}/dashboard`
+
+Auth: `X-Journ-Dashboard-Secret`, checked against that event's current
+`public_secret` (see `data-model.md` § Public dashboard). No match, no
+`public_secret` set, or event doesn't exist → `not_found` (deliberately
+not `unauthorized` — an anonymous visitor with a bad/stale link gets
+"this doesn't exist," not a hint that a valid secret might unlock
+something). Response is a self-contained snapshot, not raw fragments —
+this is the one endpoint in the whole API that pre-reduces server-side
+rather than shipping fragments for the client to reduce:
+
+```json
+{
+  "journal_name": "Substation 7 — Feeder Outage",
+  "event": {
+    "description": "Transformer fault on Feeder 12, T-2 thermal event.",
+    "start_at": "2026-07-31T14:02:00Z",
+    "closed": false,
+    "closed_at": null
+  },
+  "contacts": {
+    "contact-uuid-1": { "name": "Matt Hoskins", "short_name": "MattH" }
+  },
+  "entries": [
+    {
+      "uuid": "entry-uuid",
+      "author": "contact-uuid-1",
+      "created_at": "2026-07-31T14:05:00Z",
+      "updated_at": "2026-07-31T14:05:00Z",
+      "text": "Crews dispatched, ETA 40min. tag:action",
+      "trashed": false
+    }
+  ]
+}
+```
+
+Deliberately excluded, not merely omitted-by-accident (see
+`identity-and-security.md` § Public dashboard secret for the reasoning
+on each):
+
+- Contact `email`, `secret_hash`, `deleted*` — contacts are reduced down
+  to `{name, short_name}` only, keyed by uuid, purely to resolve
+  `@mention` chips and entry authorship.
+- `attachments` — stripped from every entry entirely; a dashboard entry
+  never carries attachment references, not even to an already-open URL.
+- The event's own `public_secret`, `creator`, `updated_by`/`updated_at` —
+  no reason to hand back the app's own auth material or edit-history
+  metadata to an anonymous viewer.
+- Trashed entries ARE included (`trashed: true`) — same as the
+  authenticated app, the client-side "show trashed" toggle still applies
+  here, this just isn't a place to filter server-side.
 
 ### `POST /journal/{uuid}/events/{event_uuid}/archive`
 

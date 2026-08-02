@@ -2,21 +2,16 @@
   // Full-bleed instrument bar — see docs/spec/ui-ux.md § Top bar.
   import {
     knownJournals, currentJournalUuid, currentEventUuid,
-    journalMeta, eventsSummary, eventMeta, entries,
+    journalMeta, eventsSummary, eventMeta,
     theme, timeMode, syncStatus,
     setTheme, setTimeMode, selectJournal, selectEvent, resetLocalData,
   } from '../stores.js';
-  import { computeCompletionPercent } from '../render.js';
   import MetaModal from './MetaModal.svelte';
+  import EventStats from './EventStats.svelte';
 
   let { baseUrl, prefillBootstrapSecret = '' } = $props();
 
   let modal = $state(null); // 'new-journal' | 'edit-journal' | 'new-event' | 'edit-event' | null
-  let now = $state(new Date());
-  $effect(() => {
-    const t = setInterval(() => (now = new Date()), 1000);
-    return () => clearInterval(t);
-  });
 
   const timeModeLabels = { utc: 'UTC', local: 'Local', t: 'T' };
   const timeModeIcons = { utc: '◔', local: '◔', t: '±' };
@@ -43,31 +38,6 @@
     await resetLocalData();
     location.href = '/'; // full reload — App.svelte's onMount rebuilds everything from the now-empty store
   }
-
-  function fmtAbsolute(iso, useLocal) {
-    if (!iso) return { time: '—', zone: '', date: '' };
-    const d = new Date(iso);
-    const pad = (n) => String(n).padStart(2, '0');
-    const h = useLocal ? d.getHours() : d.getUTCHours();
-    const m = useLocal ? d.getMinutes() : d.getUTCMinutes();
-    const mo = useLocal ? d.getMonth() : d.getUTCMonth();
-    const day = useLocal ? d.getDate() : d.getUTCDate();
-    return { time: `${pad(h)}:${pad(m)}`, zone: useLocal ? '' : 'Z', date: `${pad(mo + 1)}-${pad(day)}` };
-  }
-
-  function fmtDuration(startIso, end) {
-    if (!startIso) return '—';
-    const totalSec = Math.max(0, Math.floor((end - new Date(startIso)) / 1000));
-    const pad = (n) => String(n).padStart(2, '0');
-    const h = Math.floor(totalSec / 3600);
-    const m = Math.floor((totalSec % 3600) / 60);
-    const s = totalSec % 60;
-    return `${pad(h)}:${pad(m)}:${pad(s)}`;
-  }
-
-  let started = $derived(fmtAbsolute($eventMeta?.start_at, $timeMode === 'local'));
-  let duration = $derived(fmtDuration($eventMeta?.start_at, now));
-  let completion = $derived($eventMeta ? computeCompletionPercent($entries) : null);
 
   function onJournalChange(e) {
     const uuid = e.target.value;
@@ -136,24 +106,7 @@
 
   {#if $currentEventUuid}
     <div class="divider-v"></div>
-
-    <div class="stat">
-      <span class="eyebrow">Started</span>
-      <span class="value tabular">{started.time}{started.zone}</span>
-      <span class="date-sub tabular">{started.date}</span>
-    </div>
-    <div class="stat">
-      <span class="eyebrow">Running</span>
-      <span class="value tabular">{duration}</span>
-      <span class="date-sub tabular" aria-hidden="true" style="visibility:hidden">00-00</span>
-    </div>
-
-    {#if completion !== null}
-      <div class="completion" style="--pct:{completion}" title="Completion — from most recent update: tag">
-        <span class="ring" aria-hidden="true"></span>
-        <span class="value tabular">{completion}%</span>
-      </div>
-    {/if}
+    <EventStats />
   {/if}
 
   <div class="status-cluster">
@@ -225,32 +178,4 @@
      action, not something that should visually compete with everyday
      controls like the sync pill or theme toggle right next to it. */
   .reset-btn:hover { background: var(--danger); color: var(--accent-ink); }
-
-  .stat { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
-  .stat .eyebrow { line-height: 1; }
-  .stat .date-sub { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); line-height: 1; }
-  .stat .value { font-family: var(--font-mono); font-size: 1.8rem; font-weight: 700; line-height: 1; letter-spacing: -0.01em; }
-
-  /* Same fixed neutral colors as .chip-update in app.css — this is the
-     same "completion" concept scaled up, deliberately not theme-adaptive
-     (see docs/spec/ui-ux.md § Tags: update chips use a fixed color). */
-  .completion {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: #a9835f;
-    color: #241a10;
-    border-radius: 10px;
-    padding: 5px 13px 5px 10px;
-  }
-  :global(:root[data-theme='light']) .completion { background: #d8bd9c; color: #2b1c10; }
-  .completion .ring {
-    width: 33px; height: 33px; border-radius: 50%;
-    background: conic-gradient(currentColor calc(var(--pct) * 1%), rgba(0, 0, 0, 0.18) 0);
-    display: grid; place-items: center;
-    flex-shrink: 0;
-  }
-  .completion .ring::after { content: ''; width: 21px; height: 21px; border-radius: 50%; background-color: #a9835f; }
-  :global(:root[data-theme='light']) .completion .ring::after { background-color: #d8bd9c; }
-  .completion .value { font-family: var(--font-mono); font-weight: 700; font-size: 1.625rem; line-height: 1; }
 </style>

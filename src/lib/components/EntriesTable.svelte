@@ -5,12 +5,27 @@
   // rendering.
   import {
     entries, contacts, tagsConfig, timeMode, eventMeta, tRefEntryUuid,
-    currentJournalUuid, currentEventUuid, editEntry, trashEntry,
+    currentJournalUuid, currentEventUuid, editEntry, trashEntry, journalMeta,
   } from '../stores.js';
   import { renderEntryText, deriveDisplayName } from '../render.js';
   import { attachmentUrl } from '../api.js';
 
-  let { baseUrl } = $props();
+  // readOnly: used by the public dashboard's own instance of this same
+  // component (docs/spec/ui-ux.md § Public dashboard) — hides the edit/
+  // trash row actions and, since a public viewer already knows they're
+  // looking at the public link, the "here's the link" footer notice
+  // below (that notice is for CONTACTS in the authenticated app, so
+  // they can find/re-grab the link — not for the public page itself).
+  let { baseUrl, readOnly = false } = $props();
+
+  function dashboardUrl() {
+    const site = $journalMeta?.storage?.base_url || location.origin;
+    return `${site}/dashboard?journal=${$currentJournalUuid ?? ''}&event=${$eventMeta?.event ?? ''}&secret=${$eventMeta?.public_secret ?? ''}`;
+  }
+
+  async function copyDashboardLink() {
+    await navigator.clipboard.writeText(dashboardUrl());
+  }
 
   let showTrashed = $state(false);
   let editingUuid = $state(null);
@@ -126,7 +141,7 @@
       </div>
 
       <div class="row-actions">
-        {#if !closed && editingUuid !== entry.uuid}
+        {#if !readOnly && !closed && editingUuid !== entry.uuid}
           <button class="icon-btn" title="Edit" onclick={() => startEdit(entry)}>✎</button>
           <button class="icon-btn" title={entry.trashed ? 'Restore' : 'Trash'} onclick={() => trashEntry(entry.uuid, !entry.trashed)}>🗑</button>
         {/if}
@@ -143,6 +158,13 @@
     Show trashed entries
   </label>
 </div>
+
+{#if !readOnly && $eventMeta?.public_secret}
+  <div class="public-notice">
+    <span>This event is being shared publicly with this URL: <code>{dashboardUrl()}</code></span>
+    <button type="button" class="ghost-btn" onclick={copyDashboardLink}>Copy</button>
+  </div>
+{/if}
 
 <style>
   .log { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
@@ -192,6 +214,21 @@
 
   .ops-bar { display: flex; align-items: center; gap: 10px; padding: 10px 4px 0; }
   .checkline { display: flex; align-items: center; gap: 7px; font-size: 0.8rem; color: var(--ink-dim); }
+
+  .public-notice {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 4px 0;
+    padding: 9px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: var(--ink-dim);
+  }
+  .public-notice code { font-family: var(--font-mono); color: var(--ink); word-break: break-all; }
+  .public-notice .ghost-btn { flex-shrink: 0; margin-left: auto; padding: 5px 11px; }
 
   @media (max-width: 720px) {
     .log-head, .entry-row { grid-template-columns: 84px 1fr 46px; }

@@ -54,6 +54,7 @@ context, one storage location.
 | creator | Yes (LWW) | Reference to a contact UUID |
 | description | Yes (LWW) | Free text, same treatment as entry text (Markdown-rendered, may contain contact chips / tags) |
 | open/closed state | Yes (LWW) | See lifecycle below |
+| `public_secret` | Yes (LWW) | `null` (default) = no public dashboard. Set = that value gates read-only public access to this event. See § Public dashboard below and `identity-and-security.md` § Public dashboard secret. |
 
 - **Multiple events may be open concurrently** within one journal — events
   are not implicitly sequential.
@@ -81,6 +82,19 @@ context, one storage location.
   reaches it — a genuine race, not a bug. **Resolution: late-arriving
   entries are simply merged into the timeline normally once synced** —
   no special rejection/quarantine logic for entries that lost the race.
+
+### Public dashboard
+
+An event can optionally be shared read-only with people who are not
+journal contacts at all — a status page anyone with the link can watch,
+no login/onboarding. Toggled from the same edit-event modal as every
+other field here, and it *is* just another field on the same LWW
+metadata fragment (`public_secret`) — enabling/regenerating/disabling
+are ordinary metadata writes through `saveEventMeta()`, not a separate
+mechanism. See `identity-and-security.md` § Public dashboard secret for
+the full security reasoning (why this needs real server-side
+enforcement unlike ordinary reads) and `ui-ux.md` § Public dashboard for
+the UI.
 
 ### Event archive
 
