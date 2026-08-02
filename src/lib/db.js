@@ -90,6 +90,23 @@ export async function getKnownJournals() {
   return withStore('journals', 'readonly', (store) => reqToPromise(store.getAll()));
 }
 
+/**
+ * Keeps a bookmark's display name in sync with the real journal name once
+ * it's known. An invited contact's bookmark is seeded with the raw journal
+ * uuid as a placeholder (App.svelte has no name to show yet at invite
+ * time) — this is what's meant to replace it once the first sync pulls
+ * real metadata. Returns true if the name actually changed (callers use
+ * this to decide whether knownJournals needs re-reading).
+ */
+export async function syncJournalBookmarkName(uuid, name) {
+  return withStore('journals', 'readwrite', async (store) => {
+    const existing = await reqToPromise(store.get(uuid));
+    if (!existing || existing.name === name) return false;
+    await reqToPromise(store.put({ ...existing, name }));
+    return true;
+  });
+}
+
 // ---- identity (this device's contact + secret, per journal) -----------
 
 export async function saveIdentity(journalUuid, contactUuid, secret) {

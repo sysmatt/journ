@@ -71,7 +71,16 @@ async function findEventUuids(journalUuid) {
 }
 
 async function recomputeJournalLevel(journalUuid) {
-  journalMeta.set(reduceJournalMetadata(await db.getFragmentsByPrefix(journalUuid, 'metadata.')));
+  const meta = reduceJournalMetadata(await db.getFragmentsByPrefix(journalUuid, 'metadata.'));
+  journalMeta.set(meta);
+  // An invited contact's journal bookmark starts out showing the raw
+  // journal uuid as a placeholder name (see App.svelte's onboarding
+  // branch — there's no real name to show yet at invite time). Nothing
+  // else ever corrects it, so without this it stays a uuid in the
+  // journal picker forever, even long after the real name has synced.
+  if (meta?.name && (await db.syncJournalBookmarkName(journalUuid, meta.name))) {
+    knownJournals.set(await db.getKnownJournals());
+  }
   contacts.set(reduceContacts(await db.getFragmentsByPrefix(journalUuid, 'contact.')));
 
   const summary = {};
