@@ -259,14 +259,22 @@ wins:
 {journal-uuid}/
   metadata.{uuid}.json     # one fragment per journal metadata create/edit (name, storage config)
   contact.{uuid}.json      # one fragment file per contact, per create/edit
+  attic/                   # compacted journal-level fragments — see § Compaction below
   events/
     {event-uuid}/
       metadata.{uuid}.json          # one fragment per event metadata create/edit
       entry.{first-entry-uuid}.json # one or more entries; single online writes, or a catch-up batch after reconnect
       attachments/
         attachment.{uuid}.{ext}     # uuid-keyed blob storage; original filename kept only as a JSON attribute
-  attic/                    # compacted/archived fragments and archived events; entirely outside the list/get API
+      attic/                        # compacted fragments for THIS event, colocated rather than mirrored elsewhere
+  attic/
+    archived-events/
+      {event-uuid}/           # a WHOLE event, moved here by the archive-event endpoint (one-way, leaves events/
+                               # entirely so it stops being discoverable) — includes its own attic/ subfolder above
+                               # if this event had ever been compacted before being fully archived
 ```
+
+Compaction's attic is always a sibling `attic/` of whatever it's archiving — journal-level fragments land in `{journal}/attic/`, event-level ones in `{journal}/events/{uuid}/attic/` — never mirrored into one shared tree. This keeps an event's whole history (live + compacted) colocated, and means a later whole-event archive is a single directory move that naturally carries the compacted history along with it. The one exception is that whole-event-archive destination itself: it has to live outside `events/` (under the journal's own `attic/archived-events/`), since the event must stop being discoverable via `events/` at all, not merely gain an attic subfolder in place.
 
 ## Generalized write convention
 

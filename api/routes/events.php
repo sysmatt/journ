@@ -16,11 +16,14 @@ function journ_route_archive_event(string $journalUuid, string $eventUuid): void
     journ_require_contact_secret($journalUuid);
 
     $eventDir = journ_event_dir($journalUuid, $eventUuid);
-    // Deliberately a DIFFERENT attic subpath than the one compaction uses
-    // (attic/events/{uuid}/ — see compaction.php) — compaction archives
-    // individual fragments out of a still-live event into that path, so
-    // reusing it here would make an ordinarily-compacted (but still very
-    // much live) event look like it had already been whole-archived.
+    // Named distinctly from compaction's attic (which now lives INSIDE
+    // the event dir itself, at events/{uuid}/attic/ — see
+    // journ_archive_originals() in compaction.php) purely for
+    // readability when poking around by hand; there's no collision risk
+    // either way since compaction never touches the journal-level attic/
+    // at all for event-scoped fragments anymore. A rename() here also
+    // carries along that colocated attic/ subfolder automatically, if
+    // this event had ever been compacted before being fully archived.
     $atticEventDir = journ_attic_dir($journalUuid) . '/archived-events/' . $eventUuid;
 
     if (!is_dir(dirname($atticEventDir))) {

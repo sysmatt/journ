@@ -12,21 +12,27 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/fragments.php';
 require_once __DIR__ . '/reducer.php';
 
-/** Copies each original fragment into attic/ (mirroring its relative path) then removes the live copy. Idempotent under concurrent compaction. */
-function journ_archive_originals(string $journalUuid, array $paths): void
+/**
+ * Copies each original fragment into an `attic/` sibling of wherever it
+ * actually lives — journal-root fragments land in `{journal}/attic/`,
+ * event-scoped ones in `{journal}/events/{uuid}/attic/` — then removes
+ * the live copy. Idempotent under concurrent compaction. Deliberately
+ * colocated rather than mirrored under one shared journal-level attic:
+ * keeps an event's live + archived history together (so e.g. `mv
+ * entry.*.json attic/` / a later whole-event archive's directory rename
+ * both just work), and needs no journal-relative path reconstruction.
+ */
+function journ_archive_originals(array $paths): void
 {
-    $journalDir = journ_journal_dir($journalUuid);
-    $atticDir = journ_attic_dir($journalUuid);
     foreach ($paths as $path) {
         if (!is_file($path)) {
             continue; // already archived by a concurrent compaction run
         }
-        $relative = ltrim(substr($path, strlen($journalDir)), '/');
-        $atticPath = $atticDir . '/' . $relative;
-        $atticSubdir = dirname($atticPath);
-        if (!is_dir($atticSubdir)) {
-            mkdir($atticSubdir, 0775, true);
+        $atticDir = dirname($path) . '/attic';
+        if (!is_dir($atticDir)) {
+            mkdir($atticDir, 0775, true);
         }
+        $atticPath = $atticDir . '/' . basename($path);
         if (!is_file($atticPath)) {
             @copy($path, $atticPath);
         }
@@ -70,7 +76,7 @@ function journ_maybe_compact_journal_metadata(string $journalUuid): void
     if (!journ_write_fragment(journ_journal_dir($journalUuid), $newFilename, json_encode($winner['data'], journ_json_flags()))) {
         return; // never archive originals unless the consolidated fragment is safely on disk
     }
-    journ_archive_originals($journalUuid, array_column($found, 'path'));
+    journ_archive_originals(array_column($found, 'path'));
 }
 
 function journ_maybe_compact_contacts(string $journalUuid): void
@@ -91,7 +97,7 @@ function journ_maybe_compact_contacts(string $journalUuid): void
             return; // never archive originals unless every consolidated fragment is safely on disk
         }
     }
-    journ_archive_originals($journalUuid, array_column($found, 'path'));
+    journ_archive_originals(array_column($found, 'path'));
 }
 
 function journ_maybe_compact_event_metadata(string $journalUuid, string $eventUuid): void
@@ -114,7 +120,7 @@ function journ_maybe_compact_event_metadata(string $journalUuid, string $eventUu
     if (!journ_write_fragment(journ_event_dir($journalUuid, $eventUuid), $newFilename, json_encode($winner['data'], journ_json_flags()))) {
         return; // never archive originals unless the consolidated fragment is safely on disk
     }
-    journ_archive_originals($journalUuid, array_column($found, 'path'));
+    journ_archive_originals(array_column($found, 'path'));
 }
 
 function journ_maybe_compact_entries(string $journalUuid, string $eventUuid): void
@@ -157,5 +163,5 @@ function journ_maybe_compact_entries(string $journalUuid, string $eventUuid): vo
     if (!$ok) {
         return; // never archive originals unless the consolidated fragment is safely on disk
     }
-    journ_archive_originals($journalUuid, array_column($found, 'path'));
+    journ_archive_originals(array_column($found, 'path'));
 }
